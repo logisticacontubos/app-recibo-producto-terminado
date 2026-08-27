@@ -30,7 +30,7 @@
   <main>
     <div class="card">
       <label>OPN</label>
-      <input type="text" id="opn-input" placeholder="OPN-00000">
+      <input type="text" id="opn-input" placeholder="OPN-00000" value="OPN-">
 
       <label>Cliente</label>
       <div class="combo-wrap">
@@ -85,6 +85,21 @@ const itemList = document.getElementById("item-list");
 const itemHint = document.getElementById("item-hint");
 const opnInput = document.getElementById("opn-input");
 
+// El campo OPN siempre debe empezar con "OPN-": si el usuario borra el prefijo
+// o pega texto sin él, se lo volvemos a anteponer automáticamente.
+opnInput.addEventListener("input", () => {
+  let v = opnInput.value.toUpperCase();
+  if (!v.startsWith("OPN-")) {
+    v = "OPN-" + v.replace(/^OPN-?/i, "");
+  }
+  opnInput.value = v;
+});
+opnInput.addEventListener("focus", () => {
+  if (opnInput.selectionStart < 4) {
+    opnInput.setSelectionRange(opnInput.value.length, opnInput.value.length);
+  }
+});
+
 function renderCliList(filtro) {
   const matches = (maestros.clientes || []).filter(c => c.toLowerCase().includes(filtro.toLowerCase()));
   cliList.innerHTML = "";
@@ -133,8 +148,36 @@ function renderItemList(filtro) {
   });
   itemList.style.display = matches.length ? "block" : "none";
 }
-itemInput.addEventListener("input", () => renderItemList(itemInput.value));
+itemInput.addEventListener("input", () => {
+  // Si el texto cambia después de haber elegido un ítem, esa selección ya no
+  // es válida hasta que vuelvan a elegir (o quede una coincidencia exacta).
+  if (itemInput.value !== itemLabelSel) itemCodigoSel = "";
+  renderItemList(itemInput.value);
+});
 itemInput.addEventListener("focus", () => renderItemList(itemInput.value));
+
+// Si el usuario escribe el código completo (o el texto exacto de la sugerencia)
+// y sale del campo sin hacer clic en la lista, igual se toma como válido.
+itemInput.addEventListener("blur", () => {
+  setTimeout(() => {
+    if (itemCodigoSel) return;
+    const texto = itemInput.value.trim();
+    if (!texto) return;
+    const disponibles = (maestros.items || []).filter(it => {
+      const asociados = String(it.clientesAsociados || "");
+      return asociados.toUpperCase() === "TODOS" || asociados.includes(clienteSel);
+    });
+    const exacto = disponibles.find(it =>
+      it.codigo.toLowerCase() === texto.toLowerCase() ||
+      `${it.codigo} — ${it.descripcion}`.toLowerCase() === texto.toLowerCase()
+    );
+    if (exacto) {
+      itemCodigoSel = exacto.codigo;
+      itemLabelSel = `${exacto.codigo} — ${exacto.descripcion}`;
+      itemInput.value = itemLabelSel;
+    }
+  }, 150); // pequeño margen para que el click en la lista se procese primero
+});
 
 document.addEventListener("click", (e) => {
   if (!cliInput.contains(e.target) && !cliList.contains(e.target)) cliList.style.display = "none";

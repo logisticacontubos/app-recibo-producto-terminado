@@ -81,6 +81,7 @@ function renderItemList(filtro) {
     row.textContent = label;
     row.onclick = () => {
       itemCodigoSel = it.codigo;
+      itemLabelSel = label;
       itemInput.value = label;
       itemList.style.display = "none";
     };
@@ -88,8 +89,28 @@ function renderItemList(filtro) {
   });
   itemList.style.display = matches.length ? "block" : "none";
 }
-itemInput.addEventListener("input", () => renderItemList(itemInput.value));
+let itemLabelSel = "";
+itemInput.addEventListener("input", () => {
+  if (itemInput.value !== itemLabelSel) itemCodigoSel = "";
+  renderItemList(itemInput.value);
+});
 itemInput.addEventListener("focus", () => renderItemList(itemInput.value));
+itemInput.addEventListener("blur", () => {
+  setTimeout(() => {
+    if (itemCodigoSel) return;
+    const texto = itemInput.value.trim();
+    if (!texto) return;
+    const exacto = (maestros.items || []).find(it =>
+      it.codigo.toLowerCase() === texto.toLowerCase() ||
+      `${it.codigo} — ${it.descripcion}`.toLowerCase() === texto.toLowerCase()
+    );
+    if (exacto) {
+      itemCodigoSel = exacto.codigo;
+      itemLabelSel = `${exacto.codigo} — ${exacto.descripcion}`;
+      itemInput.value = itemLabelSel;
+    }
+  }, 150);
+});
 document.addEventListener("click", (e) => {
   if (!itemInput.contains(e.target) && !itemList.contains(e.target)) itemList.style.display = "none";
 });

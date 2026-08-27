@@ -72,7 +72,7 @@
         <thead>
           <tr>
             <th>OPN</th><th>Cliente</th><th>Ítem</th><th>Cant. anunciada</th><th>Cant. recibida</th>
-            <th>Estado</th><th>Fecha producción</th><th>Creado por</th><th>Recibido por</th><th>Fecha recibido</th><th>Calidad</th>
+            <th>Estado</th><th>Fecha producción</th><th>Creado por</th><th>Recibido por</th><th>Fecha recibido</th><th>Registró SIESA</th><th>Calidad</th>
           </tr>
         </thead>
         <tbody id="tablaCuerpo"></tbody>
@@ -126,7 +126,9 @@ document.getElementById("fechaHasta").addEventListener("change", () => { if (ran
 async function cargar() {
   try {
     const res = await apiGet("getEntregas", {});
-    todasEntregas = (res.entregas || []).filter(en => String(en.Estado).indexOf("Recibido") === 0);
+    todasEntregas = (res.entregas || []).filter(en =>
+      String(en.Estado).indexOf("Recibido") === 0 && en.Estado_SIESA === "Registrado en SIESA"
+    );
     aplicarFiltro();
   } catch (err) {
     document.getElementById("listaHistorial").innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
@@ -163,6 +165,7 @@ function aplicarFiltro() {
         <p class="op">${en.Cliente ? en.Cliente + " · " : ""}${en.Item}</p>
         <p class="op">Anunciado ${en.Cantidad_Anunciada} · Recibido ${en.Cantidad_Fisica_Recibida} und</p>
         <p class="op">Creó ${en.Creado_Por || "—"} (${en.Fecha_Creacion || "—"}) · Recibió ${en.Recibido_Por || "—"} (${en.Fecha_Recibido || "—"})</p>
+        <p class="op">Registró en SIESA ${en.Registrado_SIESA_Por || "—"} (${en.Fecha_Registro_SIESA || "—"})</p>
         ${String(en.Reporte_Calidad).toUpperCase() === "SI" ? `<p class="op" style="color:var(--rojo);">⚠ Reporte de calidad: ${en.Observacion_Calidad || "sin detalle"}</p>` : ""}`;
       cont.appendChild(item);
     });
@@ -198,6 +201,8 @@ document.getElementById("btnExcel").addEventListener("click", () => {
     "Fecha creación": en.Fecha_Creacion || "",
     "Recibido por": en.Recibido_Por || "",
     "Fecha recibido": en.Fecha_Recibido || "",
+    "Registrado SIESA por": en.Registrado_SIESA_Por || "",
+    "Fecha registro SIESA": en.Fecha_Registro_SIESA || "",
     "Reporte calidad": en.Reporte_Calidad || "NO",
     "Observación calidad": en.Observacion_Calidad || ""
   }));
@@ -219,6 +224,7 @@ document.getElementById("btnPdf").addEventListener("click", () => {
       <td>${en.Cantidad_Anunciada}</td><td>${en.Cantidad_Fisica_Recibida}</td>
       <td>${en.Estado}</td><td>${en.Fecha_Produccion}</td>
       <td>${en.Creado_Por || ""}</td><td>${en.Recibido_Por || ""}</td><td>${en.Fecha_Recibido || ""}</td>
+      <td>${en.Registrado_SIESA_Por || ""} (${en.Fecha_Registro_SIESA || ""})</td>
       <td>${String(en.Reporte_Calidad).toUpperCase() === "SI" ? "Sí — " + (en.Observacion_Calidad || "") : "No"}</td>`;
     cuerpo.appendChild(tr);
   });

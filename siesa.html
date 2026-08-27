@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPN sin entrada a SIESA — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .opn-card { margin-bottom: 12px; }
+  .opn-card .encabezado { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .opn-card .encabezado .opnid { font-size: 16px; font-weight: 700; }
+  .opn-card .meta { font-size: 12px; color: var(--gris); margin: 0 0 12px; }
+  .entrega-linea { padding: 12px 0; border-top: 1px solid var(--borde); }
+  .entrega-linea .item-txt { font-size: 13px; font-weight: 500; }
+  .entrega-linea .sub { font-size: 12px; color: var(--gris); margin-top: 2px; }
+  .entrega-linea .btn-check { margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>OPN sin entrada a SIESA</h1>
+      <p class="sub">Recibidas en bodega, pendientes de registrar</p>
+    </div>
+  </header>
+  <main>
+    <input type="text" id="busqueda-input" placeholder="Buscar por OPN, ítem o cliente...">
+    <div id="lista"></div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+const puedeMarcar = usuario && (usuario.rol === "jefe_produccion" || usuario.rol === "auxiliar_produccion");
+let todas = [];
+
+async function cargar() {
+  const cont = document.getElementById("lista");
+  try {
+    const res = await apiGet("getEntregas", {});
+    todas = (res.entregas || []).filter(en =>
+      String(en.Estado).indexOf("Recibido") === 0 && en.Estado_SIESA !== "Registrado en SIESA"
+    );
+    render(document.getElementById("busqueda-input").value);
+  } catch (err) {
+    cont.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+
+function render(busqueda) {
+  const cont = document.getElementById("lista");
+  const texto = (busqueda || "").toUpperCase().trim();
+  const coincide = (en) => !texto ||
+    String(en.OPN).toUpperCase().includes(texto) ||
+    String(en.Item).toUpperCase().includes(texto) ||
+    String(en.Cliente).toUpperCase().includes(texto);
+
+  const filtradas = todas.filter(coincide);
+  const porOpn = {};
+  filtradas.forEach(en => {
+    if (!porOpn[en.OPN]) porOpn[en.OPN] = [];
+    porOpn[en.OPN].push(en);
+  });
+
+  cont.innerHTML = "";
+  const opns = Object.keys(porOpn);
+  if (!opns.length) {
+    cont.innerHTML = '<p class="loading">No hay entregas pendientes de registrar en SIESA.</p>';
+    return;
+  }
+
+  opns.forEach(opn => {
+    const grupo = porOpn[opn];
+    const info = grupo[0];
+    const card = document.createElement("div");
+    card.className = "card opn-card";
+    card.innerHTML = `
+      <div class="encabezado">
+        <span class="opnid">${opn}</span>
+        <span class="badge badge-Ajustado">${grupo.length} sin entrada</span>
+      </div>
+      <p class="meta">${info.Cliente || "Cliente sin definir"} · Creado por ${info.OPN_Creado_Por || info.Creado_Por || "—"} · ${info.OPN_Fecha_Creacion || info.Fecha_Creacion || "—"}</p>`;
+
+    grupo.forEach(en => {
+      const badgeClass = "badge-" + claseEstado(en.Estado);
+      const linea = document.createElement("div");
+      linea.className = "entrega-linea";
+      linea.innerHTML = `
+        <div class="fila">
+          <span class="item-txt">${en.Item}</span>
+          <span class="badge ${badgeClass}">${en.Estado}</span>
+        </div>
+        <div class="sub">Anunciado ${en.Cantidad_Anunciada} · Recibido ${en.Cantidad_Fisica_Recibida} und</div>
+        <div class="sub">Creó ${en.Creado_Por || "—"} (${en.Fecha_Creacion || "—"})</div>
+        <div class="sub">Recibió ${en.Recibido_Por || "—"} (${en.Fecha_Recibido || "—"})</div>`;
+
+      if (puedeMarcar) {
+        const btn = document.createElement("button");
+        btn.className = "btn btn-primary btn-check";
+        btn.textContent = "✓ Ya hice la entrada en SIESA";
+        btn.onclick = () => marcarRegistrado(en.ID_Entrega, btn);
+        linea.appendChild(btn);
+      } else {
+        const nota = document.createElement("p");
+        nota.className = "sub";
+        nota.style.color = "var(--ambar)";
+        nota.textContent = "Pendiente de que Producción confirme la entrada en SIESA.";
+        linea.appendChild(nota);
+      }
+      card.appendChild(linea);
+    });
+    cont.appendChild(card);
+  });
+}
+
+async function marcarRegistrado(idEntrega, btn) {
+  btn.disabled = true;
+  try {
+    await apiPost("registrarSiesa", { idEntrega, registradoPor: usuario.nombre });
+    await cargar();
+  } catch (err) {
+    alert(err.message);
+    btn.disabled = false;
+  }
+}
+
+let timeoutBusqueda;
+document.getElementById("busqueda-input").addEventListener("input", (e) => {
+  clearTimeout(timeoutBusqueda);
+  timeoutBusqueda = setTimeout(() => render(e.target.value), 250);
+});
+
+if (usuario) cargar();
+</script>
+</body>
+</html>

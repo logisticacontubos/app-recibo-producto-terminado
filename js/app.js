@@ -51,6 +51,7 @@ const MENSAJES_CARGA = {
   getEntregasPorOPN: "Cargando entregas...",
   recibirEntrega: "Registrando recibo...",
   getInventario: "Cargando inventario...",
+  getAjustes: "Cargando historial de ajustes...",
   ajusteInventario: "Registrando ajuste...",
   getIndicadores: "Cargando indicadores...",
 };

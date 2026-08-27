@@ -212,6 +212,8 @@ async function confirmarRecibo() {
 
   if (!operarioProduccion) return mostrarError("errorMsg", "Indica quién entrega por parte de producción");
 
+  const btn = document.getElementById("btn-confirmar");
+  btn.disabled = true;
   try {
     await apiPost("recibirEntrega", {
       idEntrega: entregaSel.ID_Entrega,
@@ -222,6 +224,7 @@ async function confirmarRecibo() {
     volverALista();
   } catch (err) {
     mostrarError("errorMsg", err.message);
+    btn.disabled = false;
   }
 }
 

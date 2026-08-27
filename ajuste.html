@@ -133,6 +133,8 @@ document.getElementById("btn-registrar").addEventListener("click", async () => {
   if (!cantidad || Number(cantidad) <= 0) return mostrarError("errorMsg", "Ingresa la cantidad");
   if (!motivo) return mostrarError("errorMsg", "Ingresa el motivo del ajuste");
 
+  const btn = document.getElementById("btn-registrar");
+  btn.disabled = true;
   try {
     await apiPost("ajusteInventario", { item: itemCodigoSel, tipo, cantidad: Number(cantidad), motivo, usuario: usuario.nombre });
     document.getElementById("okMsg").style.display = "block";
@@ -140,6 +142,8 @@ document.getElementById("btn-registrar").addEventListener("click", async () => {
     document.getElementById("motivo-input").value = "";
   } catch (err) {
     mostrarError("errorMsg", err.message);
+  } finally {
+    btn.disabled = false;
   }
 });
 </script>

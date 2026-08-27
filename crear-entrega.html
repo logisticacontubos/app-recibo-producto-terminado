@@ -48,6 +48,10 @@
       <input type="number" id="cantidad-input">
 
       <label>Fecha de producción</label>
+      <div class="chip-row" style="margin-bottom:8px;">
+        <button type="button" class="chip" id="chip-hoy">Hoy</button>
+        <button type="button" class="chip" id="chip-ayer">Ayer</button>
+      </div>
       <input type="text" id="fecha-input" placeholder="AAAA-MM-DD" onfocus="(this.type='date')">
 
       <div class="error-msg" id="errorMsg"></div>
@@ -98,6 +102,33 @@ opnInput.addEventListener("focus", () => {
     opnInput.setSelectionRange(opnInput.value.length, opnInput.value.length);
   }
 });
+
+function formatoFecha(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dia}`;
+}
+const fechaInput = document.getElementById("fecha-input");
+const chipHoy = document.getElementById("chip-hoy");
+const chipAyer = document.getElementById("chip-ayer");
+function marcarChip(activo) {
+  chipHoy.classList.toggle("on", activo === "hoy");
+  chipAyer.classList.toggle("on", activo === "ayer");
+}
+chipHoy.addEventListener("click", () => {
+  fechaInput.type = "date";
+  fechaInput.value = formatoFecha(new Date());
+  marcarChip("hoy");
+});
+chipAyer.addEventListener("click", () => {
+  const ayer = new Date();
+  ayer.setDate(ayer.getDate() - 1);
+  fechaInput.type = "date";
+  fechaInput.value = formatoFecha(ayer);
+  marcarChip("ayer");
+});
+fechaInput.addEventListener("input", () => marcarChip(null));
 
 function renderCliList(filtro) {
   const matches = (maestros.clientes || []).filter(c => c.toLowerCase().includes(filtro.toLowerCase()));
@@ -191,19 +222,28 @@ document.getElementById("btn-crear").addEventListener("click", async () => {
   if (!cantidad || Number(cantidad) <= 0) return mostrarError("errorMsg", "Ingresa la cantidad a entregar");
   if (!fecha) return mostrarError("errorMsg", "Ingresa la fecha de producción");
 
+  const btnCrear = document.getElementById("btn-crear");
+  btnCrear.disabled = true;
+  mostrarCargando("Creando entrega...");
   try {
     const itemCompleto = `${itemCodigoSel} — ${itemDescripcionSel}`;
-    await apiPost("getOrCreateOPN", { opn, cliente: clienteSel, item: itemCompleto, creadoPor: usuario.nombre });
+    // Los dos pasos comparten un solo overlay (silencioso:true en cada uno)
+    // para que no parpadee entre "Verificando OPN..." y "Creando entrega...".
+    await apiPost("getOrCreateOPN", { opn, cliente: clienteSel, item: itemCompleto, creadoPor: usuario.nombre }, { silencioso: true });
     await apiPost("crearEntrega", {
       opn, item: itemCompleto, cantidadAnunciada: Number(cantidad), fechaProduccion: fecha, creadoPor: usuario.nombre
-    });
+    }, { silencioso: true });
     document.getElementById("okMsg").textContent = "Entrega creada correctamente.";
     document.getElementById("okMsg").style.display = "block";
     document.getElementById("cantidad-input").value = "";
     document.getElementById("fecha-input").value = "";
-    cargarHistorial(opn);
+    marcarChip(null);
+    await cargarHistorial(opn);
   } catch (err) {
     mostrarError("errorMsg", err.message);
+  } finally {
+    ocultarCargando();
+    btnCrear.disabled = false;
   }
 });
 

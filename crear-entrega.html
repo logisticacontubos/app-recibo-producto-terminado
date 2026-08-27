@@ -40,10 +40,9 @@
 
       <label>Ítem</label>
       <div class="combo-wrap">
-        <input type="text" id="item-input" placeholder="Selecciona un cliente primero" autocomplete="off" disabled>
+        <input type="text" id="item-input" placeholder="Buscar por código o descripción..." autocomplete="off">
         <div class="combo-list" id="item-list"></div>
       </div>
-      <p class="hint" id="item-hint">El listado se filtra según el cliente elegido</p>
 
       <label>Cantidad a entregar</label>
       <input type="number" id="cantidad-input">
@@ -82,7 +81,6 @@ const cliInput = document.getElementById("cli-input");
 const cliList = document.getElementById("cli-list");
 const itemInput = document.getElementById("item-input");
 const itemList = document.getElementById("item-list");
-const itemHint = document.getElementById("item-hint");
 const opnInput = document.getElementById("opn-input");
 
 // El campo OPN siempre debe empezar con "OPN-": si el usuario borra el prefijo
@@ -110,11 +108,6 @@ function renderCliList(filtro) {
       clienteSel = c;
       cliInput.value = c;
       cliList.style.display = "none";
-      itemInput.disabled = false;
-      itemInput.value = "";
-      itemCodigoSel = "";
-      itemInput.placeholder = "Buscar ítem...";
-      itemHint.textContent = `Mostrando ítems de ${c} y compartidos`;
     };
     cliList.appendChild(row);
   });
@@ -124,14 +117,11 @@ cliInput.addEventListener("input", () => renderCliList(cliInput.value));
 cliInput.addEventListener("focus", () => renderCliList(cliInput.value));
 
 function renderItemList(filtro) {
-  if (!clienteSel) return;
-  const disponibles = (maestros.items || []).filter(it => {
-    const asociados = String(it.clientesAsociados || "");
-    return asociados.toUpperCase() === "TODOS" || asociados.includes(clienteSel);
-  });
-  const matches = disponibles.filter(it =>
-    it.codigo.toLowerCase().includes(filtro.toLowerCase()) ||
-    it.descripcion.toLowerCase().includes(filtro.toLowerCase())
+  const texto = filtro.trim().toLowerCase();
+  if (!texto) { itemList.style.display = "none"; return; }
+  const matches = (maestros.items || []).filter(it =>
+    it.codigo.toLowerCase().includes(texto) ||
+    it.descripcion.toLowerCase().includes(texto)
   );
   itemList.innerHTML = "";
   matches.slice(0, 50).forEach(it => {
@@ -163,11 +153,7 @@ itemInput.addEventListener("blur", () => {
     if (itemCodigoSel) return;
     const texto = itemInput.value.trim();
     if (!texto) return;
-    const disponibles = (maestros.items || []).filter(it => {
-      const asociados = String(it.clientesAsociados || "");
-      return asociados.toUpperCase() === "TODOS" || asociados.includes(clienteSel);
-    });
-    const exacto = disponibles.find(it =>
+    const exacto = (maestros.items || []).find(it =>
       it.codigo.toLowerCase() === texto.toLowerCase() ||
       `${it.codigo} — ${it.descripcion}`.toLowerCase() === texto.toLowerCase()
     );

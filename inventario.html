@@ -6,9 +6,13 @@
 <title>Inventario activo — Recibo Producto Terminado</title>
 <link rel="stylesheet" href="css/styles.css">
 <style>
-  table.tabla-inv { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.tabla-inv th, table.tabla-inv td { text-align: left; padding: 10px 6px; border-bottom: 1px solid var(--borde); }
-  table.tabla-inv th { color: var(--magenta); font-size: 11px; text-transform: uppercase; }
+  .inv-item { margin-bottom: 10px; }
+  .inv-item .fila { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .inv-item .codigo { font-size: 15px; font-weight: 700; }
+  .inv-item .cantidad { font-size: 20px; font-weight: 700; color: var(--magenta); white-space: nowrap; }
+  .inv-item .descripcion { font-size: 13px; color: var(--texto); margin: 2px 0 6px; }
+  .inv-item .detalle { font-size: 12px; color: var(--gris); }
+  .inv-item .fecha { font-size: 12px; color: var(--gris); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -21,38 +25,56 @@
     </div>
   </header>
   <main>
-    <div class="card" id="cont-inventario"></div>
+    <input type="text" id="busqueda-input" placeholder="Buscar por código o descripción...">
+    <div id="cont-inventario"></div>
   </main>
 </div>
 <script src="js/app.js"></script>
 <script>
 const usuario = requiereApp();
+let inventarioCompleto = [];
 
 async function cargar() {
-  const cont = document.getElementById("cont-inventario");
   try {
     const res = await apiGet("getInventario", {});
-    if (!res.inventario.length) {
-      cont.innerHTML = '<p class="loading">Aún no hay inventario registrado.</p>';
-      return;
-    }
-    let html = `<table class="tabla-inv"><tr>
-      <th>Ítem</th><th>Cliente</th><th>Disponible</th><th>Más antiguo</th>
-    </tr>`;
-    res.inventario.forEach(inv => {
-      html += `<tr>
-        <td>${inv.Item}</td>
-        <td>${inv.Cliente || "—"}</td>
-        <td>${inv.Cantidad_Disponible_Total}</td>
-        <td>${inv.Entrega_Mas_Antigua_Disponible || "—"}</td>
-      </tr>`;
-    });
-    html += "</table>";
-    cont.innerHTML = html;
+    inventarioCompleto = res.inventario || [];
+    render(inventarioCompleto);
   } catch (err) {
-    cont.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+    document.getElementById("cont-inventario").innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
   }
 }
+
+function render(lista) {
+  const cont = document.getElementById("cont-inventario");
+  cont.innerHTML = "";
+  if (!lista.length) {
+    cont.innerHTML = '<p class="loading">Aún no hay inventario registrado.</p>';
+    return;
+  }
+  lista.forEach(inv => {
+    const card = document.createElement("div");
+    card.className = "card inv-item";
+    const partes = String(inv.Item || "").split(" — ");
+    const codigo = partes[0] || "";
+    const descripcion = partes.slice(1).join(" — ");
+    card.innerHTML = `
+      <div class="fila">
+        <span class="codigo">${codigo}</span>
+        <span class="cantidad">${inv.Cantidad_Disponible_Total}</span>
+      </div>
+      <p class="descripcion">${descripcion}</p>
+      ${inv.Cliente ? `<p class="detalle">Fabricado para: ${inv.Cliente}</p>` : ""}
+      <p class="fecha">Entrega más antigua disponible: ${inv.Entrega_Mas_Antigua_Disponible || "—"}</p>`;
+    cont.appendChild(card);
+  });
+}
+
+document.getElementById("busqueda-input").addEventListener("input", (e) => {
+  const texto = e.target.value.toUpperCase().trim();
+  if (!texto) { render(inventarioCompleto); return; }
+  render(inventarioCompleto.filter(inv => String(inv.Item).toUpperCase().includes(texto)));
+});
+
 if (usuario) cargar();
 </script>
 </body>

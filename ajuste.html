@@ -52,6 +52,8 @@
 
       <button class="btn btn-primary" id="btn-registrar" style="margin-top:6px;">Registrar ajuste</button>
     </div>
+
+    <div id="historial-ajustes"></div>
   </main>
 </div>
 <script src="js/app.js"></script>
@@ -59,6 +61,7 @@
 const usuario = requiereApp();
 let maestros = { items: [] };
 let itemCodigoSel = "";
+let itemDescripcionSel = "";
 
 async function init() {
   if (!usuario) return;
@@ -136,16 +139,42 @@ document.getElementById("btn-registrar").addEventListener("click", async () => {
   const btn = document.getElementById("btn-registrar");
   btn.disabled = true;
   try {
-    await apiPost("ajusteInventario", { item: itemCodigoSel, tipo, cantidad: Number(cantidad), motivo, usuario: usuario.nombre });
+    await apiPost("ajusteInventario", { item: itemLabelSel, tipo, cantidad: Number(cantidad), motivo, usuario: usuario.nombre });
     document.getElementById("okMsg").style.display = "block";
     document.getElementById("cantidad-input").value = "";
     document.getElementById("motivo-input").value = "";
+    cargarHistorialAjustes();
   } catch (err) {
     mostrarError("errorMsg", err.message);
   } finally {
     btn.disabled = false;
   }
 });
+
+async function cargarHistorialAjustes() {
+  const cont = document.getElementById("historial-ajustes");
+  try {
+    const res = await apiGet("getAjustes", {}, { silencioso: true });
+    const ajustes = (res.ajustes || []).slice(0, 15);
+    cont.innerHTML = "";
+    if (!ajustes.length) return;
+    cont.innerHTML = '<label style="font-size:13px;font-weight:700;color:var(--gris);text-transform:uppercase;margin:20px 0 10px;display:block;">Últimos ajustes registrados</label>';
+    ajustes.forEach(a => {
+      const item = document.createElement("div");
+      item.className = "req-item";
+      item.innerHTML = `
+        <div class="fila">
+          <span class="reqid">${a.Item}</span>
+          <span class="badge badge-Pendiente">${a.Tipo}</span>
+        </div>
+        <p class="op">Cantidad: ${a.Cantidad} · ${a.Fecha_Hora}</p>
+        <p class="op">${a.Motivo || ""}</p>
+        <p class="op">Registrado por ${a.Usuario || "—"}</p>`;
+      cont.appendChild(item);
+    });
+  } catch (err) { /* silencioso */ }
+}
+cargarHistorialAjustes();
 </script>
 </body>
 </html>

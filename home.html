@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inicio — Recibo Producto Terminado</title>
 <link rel="stylesheet" href="css/styles.css">
+<style>
+  .section-title { font-size: 13px; font-weight: 700; color: var(--gris); margin: 26px 0 10px; text-transform: uppercase; letter-spacing: .04em; }
+  .opn-card { margin-bottom: 12px; }
+  .opn-card .encabezado { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .opn-card .encabezado .opnid { font-size: 16px; font-weight: 700; }
+  .opn-card .meta { font-size: 12px; color: var(--gris); margin: 0 0 12px; }
+  .entrega-linea { padding: 10px 0; border-top: 1px solid var(--borde); }
+  .entrega-linea .item-txt { font-size: 13px; font-weight: 500; }
+  .entrega-linea .sub { font-size: 12px; color: var(--gris); margin-top: 2px; }
+</style>
 </head>
 <body>
 <div class="app">
@@ -14,11 +24,17 @@
       <p class="sub">Producción → Bodega</p>
     </div>
   </header>
-  <main id="acciones"></main>
+  <main>
+    <div id="acciones"></div>
+
+    <div id="lista-opn"></div>
+    <div id="lista-novedades"></div>
+  </main>
 </div>
 <script src="js/app.js"></script>
 <script>
 const usuario = requiereApp();
+
 if (usuario) {
   const cont = document.getElementById("acciones");
   const rol = usuario.rol;
@@ -28,13 +44,16 @@ if (usuario) {
   }
   if (puedeRecibir(rol) || esAdmin(rol)) {
     cont.appendChild(accion("📥", "Recibir entrega", "Buscar y confirmar entregas pendientes", "bodega.html"));
-    cont.appendChild(accion("🕘", "Historial", "Entregas completadas, filtros y reportes", "historial.html"));
   }
+  // Historial visible para cualquier rol.
+  cont.appendChild(accion("🕘", "Historial", "Entregas completadas, filtros y reportes", "historial.html"));
   if (esAdmin(rol)) {
     cont.appendChild(accion("📊", "Inventario activo", "Ver saldo disponible por ítem", "inventario.html"));
     cont.appendChild(accion("✏️", "Ajuste manual", "Registrar entradas, salidas o correcciones", "ajuste.html"));
     cont.appendChild(accion("📈", "Indicadores", "Resumen de entregas y calidad", "indicadores.html"));
   }
+
+  cargarResumen();
 }
 
 function accion(icono, titulo, sub, href) {
@@ -43,6 +62,76 @@ function accion(icono, titulo, sub, href) {
   a.href = href;
   a.innerHTML = `<span class="icono">${icono}</span><span><div>${titulo}</div><div class="sub">${sub}</div></span>`;
   return a;
+}
+
+async function cargarResumen() {
+  const contOpn = document.getElementById("lista-opn");
+  const contNov = document.getElementById("lista-novedades");
+  try {
+    const res = await apiGet("getEntregas", {}, { silencioso: true });
+    const entregas = res.entregas || [];
+
+    // Órdenes activas: agrupa por OPN todas las entregas "No entregado".
+    const pendientes = entregas.filter(en => en.Estado === "No entregado");
+    const porOpn = {};
+    pendientes.forEach(en => {
+      if (!porOpn[en.OPN]) porOpn[en.OPN] = { entregas: [], info: en };
+      porOpn[en.OPN].entregas.push(en);
+    });
+
+    contOpn.innerHTML = "";
+    const opns = Object.keys(porOpn);
+    if (opns.length) {
+      contOpn.innerHTML = '<p class="section-title">Órdenes activas / pendientes</p>';
+      opns.forEach(opn => {
+        const grupo = porOpn[opn];
+        const info = grupo.info;
+        const card = document.createElement("div");
+        card.className = "card opn-card";
+        card.innerHTML = `
+          <div class="encabezado">
+            <span class="opnid">${opn}</span>
+            <span class="badge badge-Pendiente">${grupo.entregas.length} pendiente${grupo.entregas.length > 1 ? "s" : ""}</span>
+          </div>
+          <p class="meta">${info.Cliente || "Cliente sin definir"} · Creado por ${info.OPN_Creado_Por || "—"} · ${info.OPN_Fecha_Creacion || "—"}</p>`;
+        grupo.entregas.forEach(en => {
+          const linea = document.createElement("div");
+          linea.className = "entrega-linea";
+          linea.innerHTML = `
+            <div class="item-txt">${en.Item}</div>
+            <div class="sub">${en.Cantidad_Anunciada} und · Producción: ${en.Fecha_Produccion}</div>`;
+          card.appendChild(linea);
+        });
+        contOpn.appendChild(card);
+      });
+    }
+
+    // Recibidas con novedad recientes (menor/mayor cantidad).
+    const novedades = entregas
+      .filter(en => en.Estado === "Recibido con menor cantidad" || en.Estado === "Recibido con mayor cantidad")
+      .sort((a, b) => String(b.Fecha_Recibido).localeCompare(String(a.Fecha_Recibido)))
+      .slice(0, 10);
+
+    contNov.innerHTML = "";
+    if (novedades.length) {
+      contNov.innerHTML = '<p class="section-title">Recibidas con novedad recientes</p>';
+      novedades.forEach(en => {
+        const badgeClass = "badge-" + claseEstado(en.Estado);
+        const item = document.createElement("div");
+        item.className = "req-item";
+        item.innerHTML = `
+          <div class="fila">
+            <span class="reqid">${en.OPN}</span>
+            <span class="badge ${badgeClass}">${en.Estado}</span>
+          </div>
+          <p class="op">${en.Cliente ? en.Cliente + " · " : ""}${en.Item}</p>
+          <p class="op">Anunciado ${en.Cantidad_Anunciada} · Recibido ${en.Cantidad_Fisica_Recibida} · ${en.Fecha_Recibido || "—"}</p>`;
+        contNov.appendChild(item);
+      });
+    }
+  } catch (err) {
+    contOpn.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
 }
 </script>
 </body>

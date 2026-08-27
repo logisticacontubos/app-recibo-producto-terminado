@@ -11,9 +11,14 @@
   .opn-card .encabezado { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
   .opn-card .encabezado .opnid { font-size: 16px; font-weight: 700; }
   .opn-card .meta { font-size: 12px; color: var(--gris); margin: 0 0 12px; }
-  .entrega-linea { padding: 10px 0; border-top: 1px solid var(--borde); }
+  .entrega-linea {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-top: 1px solid var(--borde); cursor: pointer;
+  }
+  .entrega-linea:hover .item-txt { color: var(--magenta); }
   .entrega-linea .item-txt { font-size: 13px; font-weight: 500; }
   .entrega-linea .sub { font-size: 12px; color: var(--gris); margin-top: 2px; }
+  .badge-editado { background: var(--magenta-claro); color: #72243E; margin-left: 6px; }
 </style>
 </head>
 <body>
@@ -34,18 +39,19 @@
 <script src="js/app.js"></script>
 <script>
 const usuario = requiereApp();
+const rol = usuario ? usuario.rol : null;
+const esVistaRecibir = usuario && (puedeRecibir(rol) || esAdmin(rol));
+const esVistaProduccionSolo = usuario && puedeCrearEntrega(rol) && !esVistaRecibir;
 
 if (usuario) {
   const cont = document.getElementById("acciones");
-  const rol = usuario.rol;
 
   if (puedeCrearEntrega(rol) || esAdmin(rol)) {
     cont.appendChild(accion("📦", "Nueva entrega", "Registrar producto que produce entrega a bodega", "crear-entrega.html"));
   }
-  if (puedeRecibir(rol) || esAdmin(rol)) {
+  if (esVistaRecibir) {
     cont.appendChild(accion("📥", "Recibir entrega", "Buscar y confirmar entregas pendientes", "bodega.html"));
   }
-  // Historial visible para cualquier rol.
   cont.appendChild(accion("🕘", "Historial", "Entregas completadas, filtros y reportes", "historial.html"));
   if (esAdmin(rol)) {
     cont.appendChild(accion("📊", "Inventario activo", "Ver saldo disponible por ítem", "inventario.html"));
@@ -71,8 +77,17 @@ async function cargarResumen() {
     const res = await apiGet("getEntregas", {}, { silencioso: true });
     const entregas = res.entregas || [];
 
-    // Órdenes activas: agrupa por OPN todas las entregas "No entregado".
-    const pendientes = entregas.filter(en => en.Estado === "No entregado");
+    let pendientes = entregas.filter(en => en.Estado === "No entregado");
+    let tituloSeccion = "Órdenes activas / pendientes";
+    let esClicableEditar = false;
+
+    if (esVistaProduccionSolo) {
+      // Producción (sin permiso de recibir): solo ve y puede editar lo que ELLA creó.
+      pendientes = pendientes.filter(en => en.Creado_Por === usuario.nombre);
+      tituloSeccion = "Mis entregas pendientes (toca para editar)";
+      esClicableEditar = true;
+    }
+
     const porOpn = {};
     pendientes.forEach(en => {
       if (!porOpn[en.OPN]) porOpn[en.OPN] = { entregas: [], info: en };
@@ -82,7 +97,7 @@ async function cargarResumen() {
     contOpn.innerHTML = "";
     const opns = Object.keys(porOpn);
     if (opns.length) {
-      contOpn.innerHTML = '<p class="section-title">Órdenes activas / pendientes</p>';
+      contOpn.innerHTML = `<p class="section-title">${tituloSeccion}</p>`;
       opns.forEach(opn => {
         const grupo = porOpn[opn];
         const info = grupo.info;
@@ -93,20 +108,31 @@ async function cargarResumen() {
             <span class="opnid">${opn}</span>
             <span class="badge badge-Pendiente">${grupo.entregas.length} pendiente${grupo.entregas.length > 1 ? "s" : ""}</span>
           </div>
-          <p class="meta">${info.Cliente || "Cliente sin definir"} · Creado por ${info.OPN_Creado_Por || "—"} · ${info.OPN_Fecha_Creacion || "—"}</p>`;
+          <p class="meta">${info.Cliente || "Cliente sin definir"} · Creado por ${info.OPN_Creado_Por || info.Creado_Por || "—"} · ${info.OPN_Fecha_Creacion || info.Fecha_Creacion || "—"}</p>`;
         grupo.entregas.forEach(en => {
           const linea = document.createElement("div");
           linea.className = "entrega-linea";
+          const editadoTag = String(en.Editado).toUpperCase() === "SI" ? `<span class="badge badge-editado">Editado</span>` : "";
           linea.innerHTML = `
-            <div class="item-txt">${en.Item}</div>
-            <div class="sub">${en.Cantidad_Anunciada} und · Producción: ${en.Fecha_Produccion}</div>`;
+            <div>
+              <div class="item-txt">${en.Item} ${editadoTag}</div>
+              <div class="sub">${en.Cantidad_Anunciada} und · Producción: ${en.Fecha_Produccion}</div>
+            </div>
+            <span style="color:var(--gris);font-size:18px;">›</span>`;
+          if (esClicableEditar) {
+            linea.onclick = () => { window.location.href = `editar-entrega.html?id=${encodeURIComponent(en.ID_Entrega)}`; };
+          } else if (esVistaRecibir) {
+            linea.onclick = () => { window.location.href = `bodega.html?id=${encodeURIComponent(en.ID_Entrega)}`; };
+          } else {
+            linea.style.cursor = "default";
+          }
           card.appendChild(linea);
         });
         contOpn.appendChild(card);
       });
     }
 
-    // Recibidas con novedad recientes (menor/mayor cantidad).
+    // Recibidas con novedad recientes (menor/mayor cantidad) — visibles para todos.
     const novedades = entregas
       .filter(en => en.Estado === "Recibido con menor cantidad" || en.Estado === "Recibido con mayor cantidad")
       .sort((a, b) => String(b.Fecha_Recibido).localeCompare(String(a.Fecha_Recibido)))

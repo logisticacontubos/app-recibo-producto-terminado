@@ -228,7 +228,24 @@ async function confirmarRecibo() {
   }
 }
 
-if (usuario) cargarPendientes("");
+if (usuario) {
+  const params = new URLSearchParams(window.location.search);
+  const idDirecto = params.get("id");
+  if (idDirecto) {
+    apiGet("getEntregas", {}, { silencioso: true }).then(res => {
+      todasEntregas = res.entregas || [];
+      const en = todasEntregas.find(e => e.ID_Entrega === idDirecto);
+      if (en && en.Estado === "No entregado") {
+        document.getElementById("vista-lista").style.display = "none";
+        mostrarRecibir(en);
+      } else {
+        cargarPendientes("");
+      }
+    }).catch(() => cargarPendientes(""));
+  } else {
+    cargarPendientes("");
+  }
+}
 </script>
 </body>
 </html>

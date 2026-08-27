@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editar entrega — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .combo-wrap { position: relative; }
+  .combo-list {
+    display: none; position: absolute; top: 44px; left: 0; right: 0;
+    background: #fff; border: 1px solid var(--borde); border-radius: 12px;
+    max-height: 220px; overflow-y: auto; z-index: 20;
+    box-shadow: 0 8px 22px rgba(26,26,26,0.18);
+  }
+  .combo-list div { padding: 10px 14px; font-size: 14px; cursor: pointer; }
+  .combo-list div:hover { background: var(--fondo); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>Editar entrega</h1>
+      <p class="sub">Solo antes de ser recibida</p>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+let maestros = { items: [] };
+let entrega = null;
+let itemCodigoSel = "";
+let itemDescripcionSel = "";
+let itemLabelSel = "";
+
+const params = new URLSearchParams(window.location.search);
+const idEntrega = params.get("id");
+
+async function init() {
+  if (!usuario) return;
+  const main = document.getElementById("main");
+  if (!idEntrega) { main.innerHTML = '<p class="error-msg" style="display:block;">Falta el identificador de la entrega.</p>'; return; }
+
+  try {
+    const [maestrosRes, entregasRes] = await Promise.all([
+      apiGet("getMaestros", {}, { silencioso: true }),
+      apiGet("getEntregas", {}, { silencioso: true })
+    ]);
+    maestros = maestrosRes;
+    entrega = (entregasRes.entregas || []).find(en => en.ID_Entrega === idEntrega);
+
+    if (!entrega) { main.innerHTML = '<p class="error-msg" style="display:block;">No se encontró esa entrega.</p>'; return; }
+    if (entrega.Estado !== "No entregado") {
+      main.innerHTML = `<div class="card"><p class="op">Esta entrega ya fue recibida (estado: <strong>${entrega.Estado}</strong>) y no se puede editar.</p></div>`;
+      return;
+    }
+    if (entrega.Creado_Por !== usuario.nombre && !esAdmin(usuario.rol)) {
+      main.innerHTML = '<p class="error-msg" style="display:block;">Solo quien creó esta entrega puede editarla.</p>';
+      return;
+    }
+
+    renderFormulario();
+  } catch (err) {
+    main.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+
+function renderFormulario() {
+  const main = document.getElementById("main");
+  const partes = String(entrega.Item || "").split(" — ");
+  itemCodigoSel = partes[0] || "";
+  itemDescripcionSel = partes.slice(1).join(" — ") || "";
+  itemLabelSel = entrega.Item;
+
+  main.innerHTML = `
+    <div class="card">
+      <label style="margin-bottom:2px;">${entrega.OPN}</label>
+      <p class="op" style="margin:0 0 14px;">${entrega.Cliente || ""}</p>
+
+      <label>Ítem</label>
+      <div class="combo-wrap">
+        <input type="text" id="item-input" value="${entrega.Item}" autocomplete="off">
+        <div class="combo-list" id="item-list"></div>
+      </div>
+
+      <label>Cantidad a entregar</label>
+      <input type="number" id="cantidad-input" value="${entrega.Cantidad_Anunciada}">
+
+      <label>Fecha de producción</label>
+      <div class="chip-row" style="margin-bottom:8px;">
+        <button type="button" class="chip" id="chip-hoy">Hoy</button>
+        <button type="button" class="chip" id="chip-ayer">Ayer</button>
+      </div>
+      <input type="date" id="fecha-input" value="${entrega.Fecha_Produccion}">
+
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="info-msg" id="okMsg" style="display:none;">Cambios guardados.</div>
+
+      <div class="btn-row" style="margin-top:6px;">
+        <a href="home.html" class="btn btn-secondary">Cancelar</a>
+        <button class="btn btn-primary" id="btn-guardar">Guardar cambios</button>
+      </div>
+    </div>`;
+
+  const itemInput = document.getElementById("item-input");
+  const itemList = document.getElementById("item-list");
+
+  function renderItemList(filtro) {
+    const texto = filtro.trim().toLowerCase();
+    if (!texto) { itemList.style.display = "none"; return; }
+    const matches = (maestros.items || []).filter(it => {
+      const codigo = String(it.codigo || "").toLowerCase();
+      const descripcion = String(it.descripcion || "").toLowerCase();
+      return codigo.includes(texto) || descripcion.includes(texto);
+    });
+    itemList.innerHTML = "";
+    matches.slice(0, 50).forEach(it => {
+      const codigo = String(it.codigo || "");
+      const label = `${codigo} — ${it.descripcion || ""}`;
+      const row = document.createElement("div");
+      row.textContent = label;
+      row.onclick = () => {
+        itemCodigoSel = codigo;
+        itemDescripcionSel = it.descripcion || "";
+        itemLabelSel = label;
+        itemInput.value = label;
+        itemList.style.display = "none";
+      };
+      itemList.appendChild(row);
+    });
+    itemList.style.display = matches.length ? "block" : "none";
+  }
+  itemInput.addEventListener("input", () => {
+    if (itemInput.value !== itemLabelSel) { itemCodigoSel = ""; }
+    renderItemList(itemInput.value);
+  });
+  itemInput.addEventListener("focus", () => renderItemList(itemInput.value));
+  document.addEventListener("click", (e) => {
+    if (!itemInput.contains(e.target) && !itemList.contains(e.target)) itemList.style.display = "none";
+  });
+
+  function formatoFecha(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dia = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dia}`;
+  }
+  document.getElementById("chip-hoy").addEventListener("click", () => {
+    document.getElementById("fecha-input").value = formatoFecha(new Date());
+  });
+  document.getElementById("chip-ayer").addEventListener("click", () => {
+    const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+    document.getElementById("fecha-input").value = formatoFecha(ayer);
+  });
+
+  document.getElementById("btn-guardar").addEventListener("click", guardarCambios);
+}
+
+async function guardarCambios() {
+  ocultarError("errorMsg");
+  document.getElementById("okMsg").style.display = "none";
+
+  const cantidad = document.getElementById("cantidad-input").value;
+  const fecha = document.getElementById("fecha-input").value;
+
+  if (!itemCodigoSel) return mostrarError("errorMsg", "Selecciona un ítem de la lista");
+  if (!cantidad || Number(cantidad) <= 0) return mostrarError("errorMsg", "Ingresa la cantidad a entregar");
+  if (!fecha) return mostrarError("errorMsg", "Ingresa la fecha de producción");
+
+  const btn = document.getElementById("btn-guardar");
+  btn.disabled = true;
+  try {
+    const itemCompleto = `${itemCodigoSel} — ${itemDescripcionSel}`;
+    await apiPost("editarEntrega", {
+      idEntrega, item: itemCompleto, cantidadAnunciada: Number(cantidad), fechaProduccion: fecha, editadoPor: usuario.nombre
+    });
+    document.getElementById("okMsg").style.display = "block";
+    setTimeout(() => { window.location.href = "home.html"; }, 900);
+  } catch (err) {
+    mostrarError("errorMsg", err.message);
+    btn.disabled = false;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

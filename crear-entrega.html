@@ -71,10 +71,6 @@ async function init() {
   if (!usuario) return;
   try {
     maestros = await apiGet("getMaestros", {});
-    console.log("Maestros cargados:", maestros.clientes.length, "clientes,", maestros.items.length, "ítems");
-    if (!maestros.items || !maestros.items.length) {
-      mostrarError("errorMsg", "Se cargaron 0 ítems desde la hoja Maestro_Items. Revisa que esa pestaña tenga datos y que los encabezados sean exactamente: Codigo_Item, Descripcion, Clientes_Asociados, Activo.");
-    }
   } catch (err) {
     mostrarError("errorMsg", "Error cargando datos: " + err.message);
   }
@@ -123,17 +119,19 @@ cliInput.addEventListener("focus", () => renderCliList(cliInput.value));
 function renderItemList(filtro) {
   const texto = filtro.trim().toLowerCase();
   if (!texto) { itemList.style.display = "none"; return; }
-  const matches = (maestros.items || []).filter(it =>
-    it.codigo.toLowerCase().includes(texto) ||
-    it.descripcion.toLowerCase().includes(texto)
-  );
+  const matches = (maestros.items || []).filter(it => {
+    const codigo = String(it.codigo || "").toLowerCase();
+    const descripcion = String(it.descripcion || "").toLowerCase();
+    return codigo.includes(texto) || descripcion.includes(texto);
+  });
   itemList.innerHTML = "";
   matches.slice(0, 50).forEach(it => {
-    const label = `${it.codigo} — ${it.descripcion}`;
+    const codigo = String(it.codigo || "");
+    const label = `${codigo} — ${it.descripcion || ""}`;
     const row = document.createElement("div");
     row.textContent = label;
     row.onclick = () => {
-      itemCodigoSel = it.codigo;
+      itemCodigoSel = codigo;
       itemLabelSel = label;
       itemInput.value = label;
       itemList.style.display = "none";
@@ -157,13 +155,15 @@ itemInput.addEventListener("blur", () => {
     if (itemCodigoSel) return;
     const texto = itemInput.value.trim();
     if (!texto) return;
-    const exacto = (maestros.items || []).find(it =>
-      it.codigo.toLowerCase() === texto.toLowerCase() ||
-      `${it.codigo} — ${it.descripcion}`.toLowerCase() === texto.toLowerCase()
-    );
+    const exacto = (maestros.items || []).find(it => {
+      const codigo = String(it.codigo || "");
+      const label = `${codigo} — ${it.descripcion || ""}`;
+      return codigo.toLowerCase() === texto.toLowerCase() || label.toLowerCase() === texto.toLowerCase();
+    });
     if (exacto) {
-      itemCodigoSel = exacto.codigo;
-      itemLabelSel = `${exacto.codigo} — ${exacto.descripcion}`;
+      const codigo = String(exacto.codigo || "");
+      itemCodigoSel = codigo;
+      itemLabelSel = `${codigo} — ${exacto.descripcion || ""}`;
       itemInput.value = itemLabelSel;
     }
   }, 150); // pequeño margen para que el click en la lista se procese primero

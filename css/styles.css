@@ -1,0 +1,354 @@
+:root{
+  --magenta:#D01148;
+  --magenta-claro:#F4C0D1;
+  --magenta-sombra: rgba(208,17,72,0.22);
+  --verde:#3B6D11;
+  --verde-fondo:#EAF3DE;
+  --fondo:#F6F5F3;
+  --texto:#1A1A1A;
+  --gris:#8A8A85;
+  --borde:#EDECE8;
+  --rojo:#A32D2D;
+  --rojo-fondo:#FCEBEB;
+  --ambar:#854F0B;
+  --ambar-fondo:#FAEEDA;
+  --radius:14px;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--fondo);
+  color:var(--texto);
+  min-height:100vh;
+}
+.app{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100vh;
+  background:var(--fondo);
+  display:flex;
+  flex-direction:column;
+}
+header.topbar{
+  background:transparent;
+  color:var(--texto);
+  padding:20px 16px 8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  row-gap:8px;
+}
+header.topbar .back{
+  color:var(--texto);
+  text-decoration:none;
+  font-size:20px;
+  line-height:1;
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  box-shadow:0 6px 18px rgba(26,26,26,0.15);
+}
+/* El bloque de título (h1 + .sub) es el único elemento del header sin ancho
+   fijo — se deja encoger y truncar con "..." en vez de forzar que el resto
+   de iconos (logo, actualizar, salir) se salgan del recuadro del teléfono. */
+header.topbar > div:not(.userchip){
+  flex:1 1 auto;
+  min-width:0;
+}
+header.topbar h1{
+  font-size:19px;
+  font-weight:700;
+  margin:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+header.topbar .sub{
+  font-size:13px;
+  color:var(--gris);
+  margin:2px 0 0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+header.topbar .logo-header{
+  height:26px;
+  width:auto;
+  object-fit:contain;
+  flex-shrink:0;
+}
+header.topbar .btn-actualizar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  border:none;
+  background:#fff;
+  color:var(--magenta);
+  font-size:16px;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex-shrink:0;
+  box-shadow:0 6px 18px rgba(26,26,26,0.15);
+}
+header.topbar .btn-actualizar:active{transform:rotate(75deg);}
+header.topbar .btn-salir{color:var(--gris);}
+header.topbar .btn-salir:active{transform:scale(0.9);}
+header.topbar .userchip{
+  margin-left:auto;
+  text-align:right;
+  font-size:11px;
+  color:var(--gris);
+  line-height:1.3;
+  max-width:100px;
+  overflow:hidden;
+}
+header.topbar .userchip .nombre,
+header.topbar .userchip .rol{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+header.topbar .userchip .nombre{
+  font-weight:700;
+  color:var(--texto);
+  font-size:12px;
+}
+main{
+  flex:1;
+  padding:12px 20px 24px;
+}
+.card{
+  background:#fff;
+  border:none;
+  border-radius:var(--radius);
+  padding:18px 20px;
+  margin-bottom:12px;
+  box-shadow:0 8px 22px rgba(26,26,26,0.18);
+}
+.card-stat{
+  background:#fff;
+  border-radius:var(--radius);
+  padding:18px 20px;
+  box-shadow:0 8px 22px rgba(26,26,26,0.18);
+}
+.card-stat .label{font-size:13px;font-weight:500;color:var(--gris);margin:0 0 4px;}
+.card-stat .value{font-size:30px;font-weight:700;margin:0;}
+label{
+  display:block;
+  font-size:13px;
+  color:var(--gris);
+  margin:0 0 5px;
+}
+input[type=text],input[type=number],select,textarea{
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid var(--borde);
+  border-radius:12px;
+  font-size:15px;
+  margin-bottom:14px;
+  background:#fff;
+  color:var(--texto);
+  font-family:inherit;
+  box-shadow:0 2px 6px rgba(26,26,26,0.06);
+}
+input[type=text]:focus,input[type=number]:focus,select:focus,textarea:focus{
+  outline:none;
+  border-color:var(--magenta);
+}
+input[type=text]::placeholder,input[type=number]::placeholder,textarea::placeholder{
+  color:var(--gris);
+}
+textarea{resize:vertical;}
+.btn{
+  display:block;
+  width:100%;
+  padding:14px;
+  border-radius:12px;
+  border:none;
+  font-size:15px;
+  font-weight:700;
+  text-align:center;
+  cursor:pointer;
+  text-decoration:none;
+}
+.btn-primary{background:var(--magenta);color:#fff;}
+.btn-secondary{background:#fff;color:var(--texto);box-shadow:0 6px 18px rgba(26,26,26,0.12);}
+.btn-danger{background:var(--rojo-fondo);color:var(--rojo);}
+.btn-row{display:flex;gap:10px;}
+.btn-row .btn{flex:1;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.accion{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  padding:16px 18px;
+  background:#fff;
+  border:none;
+  border-radius:var(--radius);
+  font-size:16px;
+  font-weight:500;
+  color:var(--texto);
+  margin-bottom:10px;
+  text-decoration:none;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(26,26,26,0.15);
+}
+.accion .icono{font-size:20px;color:var(--magenta);}
+.accion .sub{font-size:12px;color:var(--gris);font-weight:400;margin-top:2px;}
+.pin-dots{display:flex;gap:10px;justify-content:center;margin:20px 0 28px;}
+.pin-dots span{
+  width:12px;height:12px;border-radius:50%;
+  background:#fff;
+  border:1.5px solid var(--borde);
+}
+.pin-dots span.filled{background:var(--magenta);border-color:var(--magenta);box-shadow:0 3px 6px rgba(208,17,72,0.4);}
+.pin-pad{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+  max-width:260px;
+  margin:0 auto;
+}
+.pin-pad button{
+  aspect-ratio:1;
+  font-size:20px;
+  font-weight:500;
+  border-radius:50%;
+  border:none;
+  background:#fff;
+  color:var(--texto);
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(26,26,26,0.15);
+}
+.pin-pad button:active{box-shadow:0 2px 6px rgba(26,26,26,0.12);}
+.req-item{
+  background:#fff;
+  border:none;
+  border-radius:var(--radius);
+  padding:16px 18px;
+  margin-bottom:10px;
+  text-decoration:none;
+  color:inherit;
+  display:block;
+  box-shadow:0 6px 18px rgba(26,26,26,0.15);
+}
+.req-item .fila{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;
+}
+.req-item .reqid{font-size:15px;font-weight:700;}
+.req-item .maquina{font-size:13px;color:var(--gris);font-weight:500;}
+.req-item .op{font-size:13px;color:var(--gris);margin:0 0 10px;}
+.progreso{display:flex;align-items:center;gap:8px;}
+.progreso .barra{flex:1;height:6px;background:var(--fondo);border-radius:4px;overflow:hidden;}
+.progreso .barra .fill{height:100%;background:var(--magenta);}
+.progreso .txt{font-size:11px;color:var(--gris);min-width:34px;text-align:right;}
+.badge{
+  display:inline-block;
+  font-size:11px;
+  font-weight:700;
+  padding:3px 8px;
+  border-radius:20px;
+}
+.badge-Óptimo,.badge-Optimo,.badge-Entregado{background:var(--verde-fondo);color:var(--verde);}
+.badge-Ajustado,.badge-Pendiente,.badge-Entregado-parcial{background:var(--ambar-fondo);color:var(--ambar);}
+.badge-Crítico,.badge-Critico,.badge-Cero{background:var(--rojo-fondo);color:var(--rojo);}
+.error-msg{
+  background:var(--rojo-fondo);color:var(--rojo);font-size:13px;
+  padding:12px 14px;border-radius:var(--radius);margin-bottom:14px;display:none;
+}
+.info-msg{
+  background:var(--magenta-claro);color:#72243E;font-size:13px;
+  padding:12px 14px;border-radius:var(--radius);margin-bottom:14px;
+}
+.loading{text-align:center;color:var(--gris);font-size:13px;padding:20px 0;}
+.loading-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(246,245,243,0.88);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  z-index:999;
+}
+.loading-overlay .spinner{
+  width:34px;height:34px;
+  border-radius:50%;
+  border:3px solid var(--borde);
+  border-top-color:var(--magenta);
+  animation:girar .8s linear infinite;
+}
+.loading-overlay .texto{font-size:13px;font-weight:600;color:var(--texto);}
+@keyframes girar{to{transform:rotate(360deg);}}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.chip{
+  padding:10px;text-align:center;border-radius:10px;font-size:14px;font-weight:700;
+  background:#fff;color:var(--texto);border:1px solid #E7E7E7;cursor:pointer;flex:1;
+}
+.chip.on{background:var(--magenta);color:#fff;border:1px solid var(--magenta);}
+.gauge-bar{height:8px;border-radius:4px;background:var(--fondo);overflow:hidden;}
+.gauge-fill{height:100%;border-radius:4px;background:var(--magenta);}
+.umbral-input{width:64px;padding:6px 8px;margin:0;font-size:13px;border-radius:8px;border:1px solid var(--borde);}
+
+/* ===== Selección de requisiciones en Reporte y KPI's ===== */
+.req-check{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  background:#fff;
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:8px;
+  box-shadow:0 4px 12px rgba(26,26,26,0.1);
+}
+.req-check input[type=checkbox]{
+  margin-top:3px;
+  width:18px;height:18px;
+  accent-color:var(--magenta);
+  flex-shrink:0;
+}
+.req-check .info{flex:1;}
+.req-check .info .fila{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;}
+.req-check .info .op{margin:2px 0 0;}
+.link-mini{
+  font-size:12px;font-weight:700;color:var(--magenta);
+  background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;
+}
+
+/* ===== Encabezado solo para impresión / PDF ===== */
+.solo-impresion{display:none;}
+@media print{
+  @page{ size: landscape; margin: 10mm; }
+  .no-imprimir{display:none !important;}
+  .solo-impresion{display:block;}
+  body,.app{background:#fff;}
+  .card,.card-stat,.req-item,.req-check{box-shadow:none;border:1px solid var(--borde);}
+  /* La app está pensada para celular (max-width:480px) — eso también se
+     aplicaba al imprimir, y por eso la tabla del reporte se veía cortada en
+     vez de usar todo el ancho de la hoja. Al imprimir, se libera ese límite. */
+  .app{max-width:none !important;}
+  main{padding:0 !important;}
+  #tablaImpresion{table-layout:fixed;width:100% !important;font-size:8px !important;}
+  #tablaImpresion th,#tablaImpresion td{padding:3px 4px !important;word-break:break-word;}
+  .solo-impresion{overflow:visible !important;}
+}
+.encabezado-pdf{
+  display:flex;align-items:center;gap:14px;
+  padding-bottom:14px;margin-bottom:14px;
+  border-bottom:3px solid var(--magenta);
+}
+.encabezado-pdf img{height:36px;width:auto;}
+.encabezado-pdf .txt h2{margin:0;font-size:18px;color:var(--magenta);}
+.encabezado-pdf .txt p{margin:2px 0 0;font-size:12px;color:var(--gris);}

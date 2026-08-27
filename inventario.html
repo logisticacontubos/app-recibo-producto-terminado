@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario activo — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  table.tabla-inv { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.tabla-inv th, table.tabla-inv td { text-align: left; padding: 10px 6px; border-bottom: 1px solid var(--borde); }
+  table.tabla-inv th { color: var(--magenta); font-size: 11px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>Inventario activo</h1>
+      <p class="sub">Saldo disponible por ítem</p>
+    </div>
+  </header>
+  <main>
+    <div class="card" id="cont-inventario"></div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+
+async function cargar() {
+  const cont = document.getElementById("cont-inventario");
+  try {
+    const res = await apiGet("getInventario", {});
+    if (!res.inventario.length) {
+      cont.innerHTML = '<p class="loading">Aún no hay inventario registrado.</p>';
+      return;
+    }
+    let html = `<table class="tabla-inv"><tr>
+      <th>Ítem</th><th>Cliente</th><th>Disponible</th><th>Más antiguo</th>
+    </tr>`;
+    res.inventario.forEach(inv => {
+      html += `<tr>
+        <td>${inv.Item}</td>
+        <td>${inv.Cliente || "—"}</td>
+        <td>${inv.Cantidad_Disponible_Total}</td>
+        <td>${inv.Entrega_Mas_Antigua_Disponible || "—"}</td>
+      </tr>`;
+    });
+    html += "</table>";
+    cont.innerHTML = html;
+  } catch (err) {
+    cont.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+if (usuario) cargar();
+</script>
+</body>
+</html>

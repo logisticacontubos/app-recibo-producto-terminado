@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nueva entrega — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .combo-wrap { position: relative; }
+  .combo-list {
+    display: none; position: absolute; top: 44px; left: 0; right: 0;
+    background: #fff; border: 1px solid var(--borde); border-radius: 12px;
+    max-height: 220px; overflow-y: auto; z-index: 20;
+    box-shadow: 0 8px 22px rgba(26,26,26,0.18);
+  }
+  .combo-list div { padding: 10px 14px; font-size: 14px; cursor: pointer; }
+  .combo-list div:hover { background: var(--fondo); }
+  .hint { font-size: 12px; color: var(--gris); margin: -8px 0 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>Nueva entrega</h1>
+      <p class="sub">Producto terminado a bodega</p>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <label>OPN</label>
+      <input type="text" id="opn-input" placeholder="OPN-00000">
+
+      <label>Cliente</label>
+      <div class="combo-wrap">
+        <input type="text" id="cli-input" placeholder="Buscar cliente..." autocomplete="off">
+        <div class="combo-list" id="cli-list"></div>
+      </div>
+
+      <label>Ítem</label>
+      <div class="combo-wrap">
+        <input type="text" id="item-input" placeholder="Selecciona un cliente primero" autocomplete="off" disabled>
+        <div class="combo-list" id="item-list"></div>
+      </div>
+      <p class="hint" id="item-hint">El listado se filtra según el cliente elegido</p>
+
+      <label>Cantidad a entregar</label>
+      <input type="number" id="cantidad-input">
+
+      <label>Fecha de producción</label>
+      <input type="text" id="fecha-input" placeholder="AAAA-MM-DD" onfocus="(this.type='date')">
+
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="info-msg" id="okMsg" style="display:none;"></div>
+
+      <button class="btn btn-primary" id="btn-crear" style="margin-top:6px;">Crear entrega</button>
+    </div>
+
+    <div id="historial"></div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+let maestros = { clientes: [], items: [] };
+let clienteSel = "";
+let itemCodigoSel = "";
+let itemLabelSel = "";
+
+async function init() {
+  if (!usuario) return;
+  try {
+    maestros = await apiGet("getMaestros", {});
+  } catch (err) {
+    mostrarError("errorMsg", err.message);
+  }
+}
+init();
+
+const cliInput = document.getElementById("cli-input");
+const cliList = document.getElementById("cli-list");
+const itemInput = document.getElementById("item-input");
+const itemList = document.getElementById("item-list");
+const itemHint = document.getElementById("item-hint");
+const opnInput = document.getElementById("opn-input");
+
+function renderCliList(filtro) {
+  const matches = (maestros.clientes || []).filter(c => c.toLowerCase().includes(filtro.toLowerCase()));
+  cliList.innerHTML = "";
+  matches.slice(0, 50).forEach(c => {
+    const row = document.createElement("div");
+    row.textContent = c;
+    row.onclick = () => {
+      clienteSel = c;
+      cliInput.value = c;
+      cliList.style.display = "none";
+      itemInput.disabled = false;
+      itemInput.value = "";
+      itemCodigoSel = "";
+      itemInput.placeholder = "Buscar ítem...";
+      itemHint.textContent = `Mostrando ítems de ${c} y compartidos`;
+    };
+    cliList.appendChild(row);
+  });
+  cliList.style.display = matches.length ? "block" : "none";
+}
+cliInput.addEventListener("input", () => renderCliList(cliInput.value));
+cliInput.addEventListener("focus", () => renderCliList(cliInput.value));
+
+function renderItemList(filtro) {
+  if (!clienteSel) return;
+  const disponibles = (maestros.items || []).filter(it => {
+    const asociados = String(it.clientesAsociados || "");
+    return asociados.toUpperCase() === "TODOS" || asociados.includes(clienteSel);
+  });
+  const matches = disponibles.filter(it =>
+    it.codigo.toLowerCase().includes(filtro.toLowerCase()) ||
+    it.descripcion.toLowerCase().includes(filtro.toLowerCase())
+  );
+  itemList.innerHTML = "";
+  matches.slice(0, 50).forEach(it => {
+    const label = `${it.codigo} — ${it.descripcion}`;
+    const row = document.createElement("div");
+    row.textContent = label;
+    row.onclick = () => {
+      itemCodigoSel = it.codigo;
+      itemLabelSel = label;
+      itemInput.value = label;
+      itemList.style.display = "none";
+    };
+    itemList.appendChild(row);
+  });
+  itemList.style.display = matches.length ? "block" : "none";
+}
+itemInput.addEventListener("input", () => renderItemList(itemInput.value));
+itemInput.addEventListener("focus", () => renderItemList(itemInput.value));
+
+document.addEventListener("click", (e) => {
+  if (!cliInput.contains(e.target) && !cliList.contains(e.target)) cliList.style.display = "none";
+  if (!itemInput.contains(e.target) && !itemList.contains(e.target)) itemList.style.display = "none";
+});
+
+document.getElementById("btn-crear").addEventListener("click", async () => {
+  ocultarError("errorMsg");
+  document.getElementById("okMsg").style.display = "none";
+
+  const opn = opnInput.value.trim();
+  const cantidad = document.getElementById("cantidad-input").value;
+  const fecha = document.getElementById("fecha-input").value;
+
+  if (!opn) return mostrarError("errorMsg", "Ingresa el número de OPN");
+  if (!clienteSel) return mostrarError("errorMsg", "Selecciona un cliente");
+  if (!itemCodigoSel) return mostrarError("errorMsg", "Selecciona un ítem");
+  if (!cantidad || Number(cantidad) <= 0) return mostrarError("errorMsg", "Ingresa la cantidad a entregar");
+  if (!fecha) return mostrarError("errorMsg", "Ingresa la fecha de producción");
+
+  try {
+    await apiPost("getOrCreateOPN", { opn, cliente: clienteSel, item: itemCodigoSel, creadoPor: usuario.nombre });
+    await apiPost("crearEntrega", {
+      opn, item: itemCodigoSel, cantidadAnunciada: Number(cantidad), fechaProduccion: fecha, creadoPor: usuario.nombre
+    });
+    document.getElementById("okMsg").textContent = "Entrega creada correctamente.";
+    document.getElementById("okMsg").style.display = "block";
+    document.getElementById("cantidad-input").value = "";
+    document.getElementById("fecha-input").value = "";
+    cargarHistorial(opn);
+  } catch (err) {
+    mostrarError("errorMsg", err.message);
+  }
+});
+
+async function cargarHistorial(opn) {
+  try {
+    const res = await apiGet("getEntregasPorOPN", { opn }, { silencioso: true });
+    const cont = document.getElementById("historial");
+    cont.innerHTML = "";
+    if (!res.entregas.length) return;
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<label style="margin-bottom:10px;">Entregas de esta OPN</label>`;
+    res.entregas.forEach(en => {
+      const badgeClass = "badge-" + claseEstado(en.Estado);
+      card.innerHTML += `
+        <div class="req-item" style="box-shadow:none;border:1px solid var(--borde);padding:10px 12px;">
+          <div class="fila">
+            <span class="reqid">${en.Fecha_Produccion} · ${en.Cantidad_Anunciada} und</span>
+            <span class="badge ${badgeClass}">${en.Estado}</span>
+          </div>
+          <p class="op">${en.Item}</p>
+        </div>`;
+    });
+    cont.appendChild(card);
+  } catch (err) { /* silencioso */ }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inicio — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <h1>Recibo Producto Terminado</h1>
+      <p class="sub">Producción → Bodega</p>
+    </div>
+  </header>
+  <main id="acciones"></main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+if (usuario) {
+  const cont = document.getElementById("acciones");
+  const rol = usuario.rol;
+
+  if (puedeCrearEntrega(rol) || esAdmin(rol)) {
+    cont.appendChild(accion("📦", "Nueva entrega", "Registrar producto que produce entrega a bodega", "crear-entrega.html"));
+  }
+  if (puedeRecibir(rol) || esAdmin(rol)) {
+    cont.appendChild(accion("📥", "Recibir entrega", "Buscar y confirmar entregas pendientes", "bodega.html"));
+  }
+  if (esAdmin(rol)) {
+    cont.appendChild(accion("📊", "Inventario activo", "Ver saldo disponible por ítem", "inventario.html"));
+    cont.appendChild(accion("✏️", "Ajuste manual", "Registrar entradas, salidas o correcciones", "ajuste.html"));
+    cont.appendChild(accion("📈", "Indicadores", "Resumen de entregas y calidad", "indicadores.html"));
+  }
+}
+
+function accion(icono, titulo, sub, href) {
+  const a = document.createElement("a");
+  a.className = "accion";
+  a.href = href;
+  a.innerHTML = `<span class="icono">${icono}</span><span><div>${titulo}</div><div class="sub">${sub}</div></span>`;
+  return a;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajuste manual — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .combo-wrap { position: relative; }
+  .combo-list {
+    display: none; position: absolute; top: 44px; left: 0; right: 0;
+    background: #fff; border: 1px solid var(--borde); border-radius: 12px;
+    max-height: 220px; overflow-y: auto; z-index: 20;
+    box-shadow: 0 8px 22px rgba(26,26,26,0.18);
+  }
+  .combo-list div { padding: 10px 14px; font-size: 14px; cursor: pointer; }
+  .combo-list div:hover { background: var(--fondo); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>Ajuste manual</h1>
+      <p class="sub">Inventario activo</p>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <label>Ítem</label>
+      <div class="combo-wrap">
+        <input type="text" id="item-input" placeholder="Buscar ítem..." autocomplete="off">
+        <div class="combo-list" id="item-list"></div>
+      </div>
+
+      <label>Tipo de ajuste</label>
+      <select id="tipo-select">
+        <option value="Entrada">Entrada</option>
+        <option value="Salida">Salida</option>
+        <option value="Correccion">Corrección</option>
+      </select>
+
+      <label>Cantidad</label>
+      <input type="number" id="cantidad-input">
+
+      <label>Motivo</label>
+      <textarea id="motivo-input"></textarea>
+
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="info-msg" id="okMsg" style="display:none;">Ajuste registrado correctamente.</div>
+
+      <button class="btn btn-primary" id="btn-registrar" style="margin-top:6px;">Registrar ajuste</button>
+    </div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+let maestros = { items: [] };
+let itemCodigoSel = "";
+
+async function init() {
+  if (!usuario) return;
+  try { maestros = await apiGet("getMaestros", {}); } catch (err) { mostrarError("errorMsg", err.message); }
+}
+init();
+
+const itemInput = document.getElementById("item-input");
+const itemList = document.getElementById("item-list");
+
+function renderItemList(filtro) {
+  const matches = (maestros.items || []).filter(it =>
+    it.codigo.toLowerCase().includes(filtro.toLowerCase()) ||
+    it.descripcion.toLowerCase().includes(filtro.toLowerCase())
+  );
+  itemList.innerHTML = "";
+  matches.slice(0, 50).forEach(it => {
+    const label = `${it.codigo} — ${it.descripcion}`;
+    const row = document.createElement("div");
+    row.textContent = label;
+    row.onclick = () => {
+      itemCodigoSel = it.codigo;
+      itemInput.value = label;
+      itemList.style.display = "none";
+    };
+    itemList.appendChild(row);
+  });
+  itemList.style.display = matches.length ? "block" : "none";
+}
+itemInput.addEventListener("input", () => renderItemList(itemInput.value));
+itemInput.addEventListener("focus", () => renderItemList(itemInput.value));
+document.addEventListener("click", (e) => {
+  if (!itemInput.contains(e.target) && !itemList.contains(e.target)) itemList.style.display = "none";
+});
+
+document.getElementById("btn-registrar").addEventListener("click", async () => {
+  ocultarError("errorMsg");
+  document.getElementById("okMsg").style.display = "none";
+
+  const tipo = document.getElementById("tipo-select").value;
+  const cantidad = document.getElementById("cantidad-input").value;
+  const motivo = document.getElementById("motivo-input").value.trim();
+
+  if (!itemCodigoSel) return mostrarError("errorMsg", "Selecciona un ítem");
+  if (!cantidad || Number(cantidad) <= 0) return mostrarError("errorMsg", "Ingresa la cantidad");
+  if (!motivo) return mostrarError("errorMsg", "Ingresa el motivo del ajuste");
+
+  try {
+    await apiPost("ajusteInventario", { item: itemCodigoSel, tipo, cantidad: Number(cantidad), motivo, usuario: usuario.nombre });
+    document.getElementById("okMsg").style.display = "block";
+    document.getElementById("cantidad-input").value = "";
+    document.getElementById("motivo-input").value = "";
+  } catch (err) {
+    mostrarError("errorMsg", err.message);
+  }
+});
+</script>
+</body>
+</html>

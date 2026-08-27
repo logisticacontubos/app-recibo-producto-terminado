@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indicadores — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>Indicadores</h1>
+      <p class="sub">Resumen general</p>
+    </div>
+  </header>
+  <main>
+    <div class="stat-grid" id="stats"></div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+
+async function cargar() {
+  const cont = document.getElementById("stats");
+  try {
+    const ind = await apiGet("getIndicadores", {});
+    cont.innerHTML = "";
+    [
+      [ind.totalEntregas, "Total entregas"],
+      [ind.pendientes, "Pendientes"],
+      [ind.recibidas, "Recibidas"],
+      [ind.conMenorCantidad, "Con menor cantidad"],
+      [ind.conMayorCantidad, "Con mayor cantidad"],
+      [ind.conReporteCalidad, "Con reporte calidad"]
+    ].forEach(([num, label]) => {
+      const box = document.createElement("div");
+      box.className = "card-stat";
+      box.innerHTML = `<p class="label">${label}</p><p class="value">${num}</p>`;
+      cont.appendChild(box);
+    });
+  } catch (err) {
+    cont.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+if (usuario) cargar();
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recibir entrega — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .info-box { background: var(--fondo); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; }
+  .info-box .r { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .info-box .r:last-child { margin-bottom: 0; }
+  .info-box .label { color: var(--gris); }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 4px 0 14px; }
+  .checkbox-row input { width: auto; margin: 0; }
+  .estado-preview { font-size: 13px; margin: -8px 0 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>Recibir entrega</h1>
+      <p class="sub">Bodega</p>
+    </div>
+  </header>
+  <main>
+    <div id="vista-lista">
+      <input type="text" id="busqueda-input" placeholder="Buscar por OPN o ítem...">
+      <div id="lista-entregas"></div>
+    </div>
+
+    <div id="vista-recibir" style="display:none;"></div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+let entregaSel = null;
+
+async function cargarPendientes(busqueda) {
+  const cont = document.getElementById("lista-entregas");
+  try {
+    const res = await apiGet("getEntregasPendientes", { busqueda: busqueda || "" });
+    cont.innerHTML = "";
+    if (!res.entregas.length) {
+      cont.innerHTML = '<p class="loading">No hay entregas pendientes que coincidan.</p>';
+      return;
+    }
+    res.entregas.forEach(en => {
+      const item = document.createElement("div");
+      item.className = "req-item";
+      item.style.cursor = "pointer";
+      item.innerHTML = `
+        <div class="fila">
+          <span class="reqid">${en.OPN} · ${en.Cantidad_Anunciada} und</span>
+          <span class="badge badge-Pendiente">Pendiente</span>
+        </div>
+        <p class="op">${en.Item}</p>
+        <p class="op">Producción: ${en.Fecha_Produccion}</p>`;
+      item.onclick = () => mostrarRecibir(en);
+      cont.appendChild(item);
+    });
+  } catch (err) {
+    cont.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+
+let timeoutBusqueda;
+document.getElementById("busqueda-input").addEventListener("input", (e) => {
+  clearTimeout(timeoutBusqueda);
+  timeoutBusqueda = setTimeout(() => cargarPendientes(e.target.value), 300);
+});
+
+function mostrarRecibir(en) {
+  entregaSel = en;
+  document.getElementById("vista-lista").style.display = "none";
+  const vista = document.getElementById("vista-recibir");
+  vista.style.display = "block";
+  vista.innerHTML = `
+    <div class="card">
+      <label style="margin-bottom:2px;">${en.OPN}</label>
+      <p class="op" style="margin:0 0 14px;">${en.Item}</p>
+
+      <div class="info-box">
+        <div class="r"><span class="label">Cantidad anunciada</span><span>${en.Cantidad_Anunciada} und</span></div>
+        <div class="r"><span class="label">Fecha de producción</span><span>${en.Fecha_Produccion}</span></div>
+      </div>
+
+      <label>Cantidad física recibida</label>
+      <input type="number" id="cant-fisica" value="${en.Cantidad_Anunciada}">
+      <p class="estado-preview" id="estado-preview"></p>
+
+      <label>Operario de producción que entrega</label>
+      <input type="text" id="operario-produccion" placeholder="Nombre del operario">
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="reporte-calidad">
+        <label style="margin:0;color:var(--texto);">Reportar problema de calidad</label>
+      </div>
+
+      <label>Observación de calidad (opcional)</label>
+      <textarea id="observacion-calidad"></textarea>
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+        <button class="btn btn-primary" id="btn-confirmar">Confirmar recibo</button>
+      </div>
+    </div>`;
+
+  const cantInput = document.getElementById("cant-fisica");
+  const preview = document.getElementById("estado-preview");
+  function updatePreview() {
+    const val = Number(cantInput.value);
+    const anunciada = Number(en.Cantidad_Anunciada);
+    if (val === anunciada) { preview.textContent = "✓ Coincide con lo anunciado"; preview.style.color = "var(--verde)"; }
+    else if (val < anunciada) { preview.textContent = `⚠ Recibido con menor cantidad (faltan ${anunciada - val} und)`; preview.style.color = "var(--rojo)"; }
+    else { preview.textContent = `⚠ Recibido con mayor cantidad (${val - anunciada} und de más)`; preview.style.color = "var(--ambar)"; }
+  }
+  updatePreview();
+  cantInput.addEventListener("input", updatePreview);
+
+  document.getElementById("btn-cancelar").onclick = volverALista;
+  document.getElementById("btn-confirmar").onclick = confirmarRecibo;
+}
+
+function volverALista() {
+  entregaSel = null;
+  document.getElementById("vista-recibir").style.display = "none";
+  document.getElementById("vista-lista").style.display = "block";
+  cargarPendientes(document.getElementById("busqueda-input").value);
+}
+
+async function confirmarRecibo() {
+  ocultarError("errorMsg");
+  const cantidadFisica = Number(document.getElementById("cant-fisica").value);
+  const operarioProduccion = document.getElementById("operario-produccion").value.trim();
+  const reporteCalidad = document.getElementById("reporte-calidad").checked;
+  const observacionCalidad = document.getElementById("observacion-calidad").value.trim();
+
+  if (!operarioProduccion) return mostrarError("errorMsg", "Indica quién entrega por parte de producción");
+
+  try {
+    await apiPost("recibirEntrega", {
+      idEntrega: entregaSel.ID_Entrega,
+      cantidadFisica, operarioProduccion,
+      operarioBodega: usuario.nombre,
+      reporteCalidad, observacionCalidad
+    });
+    volverALista();
+  } catch (err) {
+    mostrarError("errorMsg", err.message);
+  }
+}
+
+if (usuario) cargarPendientes("");
+</script>
+</body>
+</html>

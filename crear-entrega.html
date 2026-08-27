@@ -65,6 +65,7 @@ const usuario = requiereApp();
 let maestros = { clientes: [], items: [] };
 let clienteSel = "";
 let itemCodigoSel = "";
+let itemDescripcionSel = "";
 let itemLabelSel = "";
 
 async function init() {
@@ -132,6 +133,7 @@ function renderItemList(filtro) {
     row.textContent = label;
     row.onclick = () => {
       itemCodigoSel = codigo;
+      itemDescripcionSel = it.descripcion || "";
       itemLabelSel = label;
       itemInput.value = label;
       itemList.style.display = "none";
@@ -163,6 +165,7 @@ itemInput.addEventListener("blur", () => {
     if (exacto) {
       const codigo = String(exacto.codigo || "");
       itemCodigoSel = codigo;
+      itemDescripcionSel = exacto.descripcion || "";
       itemLabelSel = `${codigo} — ${exacto.descripcion || ""}`;
       itemInput.value = itemLabelSel;
     }
@@ -189,9 +192,10 @@ document.getElementById("btn-crear").addEventListener("click", async () => {
   if (!fecha) return mostrarError("errorMsg", "Ingresa la fecha de producción");
 
   try {
-    await apiPost("getOrCreateOPN", { opn, cliente: clienteSel, item: itemCodigoSel, creadoPor: usuario.nombre });
+    const itemCompleto = `${itemCodigoSel} — ${itemDescripcionSel}`;
+    await apiPost("getOrCreateOPN", { opn, cliente: clienteSel, item: itemCompleto, creadoPor: usuario.nombre });
     await apiPost("crearEntrega", {
-      opn, item: itemCodigoSel, cantidadAnunciada: Number(cantidad), fechaProduccion: fecha, creadoPor: usuario.nombre
+      opn, item: itemCompleto, cantidadAnunciada: Number(cantidad), fechaProduccion: fecha, creadoPor: usuario.nombre
     });
     document.getElementById("okMsg").textContent = "Entrega creada correctamente.";
     document.getElementById("okMsg").style.display = "block";
@@ -211,7 +215,8 @@ async function cargarHistorial(opn) {
     if (!res.entregas.length) return;
     const card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = `<label style="margin-bottom:10px;">Entregas de esta OPN</label>`;
+    card.innerHTML = `<label style="margin-bottom:2px;">Entregas de esta OPN</label>
+      <p class="op" style="margin:0 0 10px;">Cliente: ${res.entregas[0].Cliente || clienteSel || "—"}</p>`;
     res.entregas.forEach(en => {
       const badgeClass = "badge-" + claseEstado(en.Estado);
       card.innerHTML += `
@@ -221,6 +226,8 @@ async function cargarHistorial(opn) {
             <span class="badge ${badgeClass}">${en.Estado}</span>
           </div>
           <p class="op">${en.Item}</p>
+          <p class="op">Creado por ${en.Creado_Por || "—"} · ${en.Fecha_Creacion || "—"}</p>
+          ${en.Recibido_Por ? `<p class="op">Recibido por ${en.Recibido_Por} · ${en.Fecha_Recibido || "—"}</p>` : ""}
         </div>`;
     });
     cont.appendChild(card);

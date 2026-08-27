@@ -56,7 +56,7 @@ async function cargarPendientes(busqueda) {
           <span class="reqid">${en.OPN} · ${en.Cantidad_Anunciada} und</span>
           <span class="badge badge-Pendiente">Pendiente</span>
         </div>
-        <p class="op">${en.Item}</p>
+        <p class="op">${en.Cliente ? en.Cliente + " · " : ""}${en.Item}</p>
         <p class="op">Producción: ${en.Fecha_Produccion}</p>`;
       item.onclick = () => mostrarRecibir(en);
       cont.appendChild(item);
@@ -80,7 +80,7 @@ function mostrarRecibir(en) {
   vista.innerHTML = `
     <div class="card">
       <label style="margin-bottom:2px;">${en.OPN}</label>
-      <p class="op" style="margin:0 0 14px;">${en.Item}</p>
+      <p class="op" style="margin:0 0 14px;">${en.Cliente ? en.Cliente + " · " : ""}${en.Item}</p>
 
       <div class="info-box">
         <div class="r"><span class="label">Cantidad anunciada</span><span>${en.Cantidad_Anunciada} und</span></div>

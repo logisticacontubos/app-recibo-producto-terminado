@@ -71,8 +71,12 @@ async function init() {
   if (!usuario) return;
   try {
     maestros = await apiGet("getMaestros", {});
+    console.log("Maestros cargados:", maestros.clientes.length, "clientes,", maestros.items.length, "ítems");
+    if (!maestros.items || !maestros.items.length) {
+      mostrarError("errorMsg", "Se cargaron 0 ítems desde la hoja Maestro_Items. Revisa que esa pestaña tenga datos y que los encabezados sean exactamente: Codigo_Item, Descripcion, Clientes_Asociados, Activo.");
+    }
   } catch (err) {
-    mostrarError("errorMsg", err.message);
+    mostrarError("errorMsg", "Error cargando datos: " + err.message);
   }
 }
 init();

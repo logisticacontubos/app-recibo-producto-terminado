@@ -46,6 +46,7 @@ const MENSAJES_CARGA = {
   getMaestros: "Cargando datos...",
   getOrCreateOPN: "Verificando OPN...",
   crearEntrega: "Creando entrega...",
+  getEntregas: "Cargando entregas...",
   getEntregasPendientes: "Cargando entregas...",
   getEntregasPorOPN: "Cargando entregas...",
   recibirEntrega: "Registrando recibo...",

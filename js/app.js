@@ -50,6 +50,7 @@ const MENSAJES_CARGA = {
   getEntregasPendientes: "Cargando entregas...",
   getEntregasPorOPN: "Cargando entregas...",
   recibirEntrega: "Registrando recibo...",
+  registrarSiesa: "Registrando en SIESA...",
   getInventario: "Cargando inventario...",
   getAjustes: "Cargando historial de ajustes...",
   ajusteInventario: "Registrando ajuste...",

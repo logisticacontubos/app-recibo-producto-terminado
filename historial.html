@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historial — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .rango-personalizado { display: none; gap: 10px; margin-bottom: 10px; }
+  .rango-personalizado > div { flex: 1; }
+  .rango-personalizado.visible { display: flex; }
+  .hist-item { margin-bottom: 8px; }
+  .hist-item .fila { display: flex; justify-content: space-between; align-items: baseline; }
+  .hist-item .op { margin: 2px 0; }
+  #tablaImpresion { display: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar no-imprimir">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>Historial</h1>
+      <p class="sub">Entregas completadas</p>
+    </div>
+  </header>
+  <main>
+    <div class="no-imprimir">
+      <div class="chip-row" id="chipsRango">
+        <button class="chip on" data-rango="hoy">Hoy</button>
+        <button class="chip" data-rango="ayer">Ayer</button>
+        <button class="chip" data-rango="semana">Semana</button>
+        <button class="chip" data-rango="mes">Mes</button>
+        <button class="chip" data-rango="personalizado">Fechas</button>
+      </div>
+      <div class="rango-personalizado" id="rangoPersonalizado">
+        <div>
+          <label>Desde</label>
+          <input type="date" id="fechaDesde">
+        </div>
+        <div>
+          <label>Hasta</label>
+          <input type="date" id="fechaHasta">
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-bottom:16px;">
+        <button class="btn btn-secondary" id="btnExcel">Exportar Excel</button>
+        <button class="btn btn-secondary" id="btnPdf">Exportar PDF</button>
+      </div>
+
+      <div id="resumen" class="card-stat" style="margin-bottom:16px;">
+        <p class="label">Entregas completadas en el rango</p>
+        <p class="value" id="totalRango">0</p>
+      </div>
+
+      <div id="listaHistorial"></div>
+    </div>
+
+    <!-- Tabla solo para impresión / PDF -->
+    <div class="solo-impresion" id="tablaImpresion">
+      <div class="encabezado-pdf">
+        <img src="assets/logo-contubos.png" alt="Contubos">
+        <div class="txt">
+          <h2>Historial de Entregas — Recibo Producto Terminado</h2>
+          <p id="rangoTexto"></p>
+        </div>
+      </div>
+      <table id="tablaDatos" style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr>
+            <th>OPN</th><th>Cliente</th><th>Ítem</th><th>Cant. anunciada</th><th>Cant. recibida</th>
+            <th>Estado</th><th>Fecha producción</th><th>Creado por</th><th>Recibido por</th><th>Fecha recibido</th><th>Calidad</th>
+          </tr>
+        </thead>
+        <tbody id="tablaCuerpo"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+let todasEntregas = [];
+let rangoActivo = "hoy";
+
+function inicioDia(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function finDia(d) { const x = new Date(d); x.setHours(23,59,59,999); return x; }
+
+function calcularRango(tipo) {
+  const hoy = new Date();
+  if (tipo === "hoy") return [inicioDia(hoy), finDia(hoy)];
+  if (tipo === "ayer") {
+    const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1);
+    return [inicioDia(ayer), finDia(ayer)];
+  }
+  if (tipo === "semana") {
+    const inicio = new Date(hoy); inicio.setDate(inicio.getDate() - 6);
+    return [inicioDia(inicio), finDia(hoy)];
+  }
+  if (tipo === "mes") {
+    const inicio = new Date(hoy); inicio.setDate(inicio.getDate() - 29);
+    return [inicioDia(inicio), finDia(hoy)];
+  }
+  // personalizado
+  const desde = document.getElementById("fechaDesde").value;
+  const hasta = document.getElementById("fechaHasta").value;
+  if (!desde || !hasta) return null;
+  return [inicioDia(new Date(desde + "T00:00:00")), finDia(new Date(hasta + "T00:00:00"))];
+}
+
+document.querySelectorAll("#chipsRango .chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#chipsRango .chip").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    rangoActivo = btn.dataset.rango;
+    document.getElementById("rangoPersonalizado").classList.toggle("visible", rangoActivo === "personalizado");
+    if (rangoActivo !== "personalizado") aplicarFiltro();
+  });
+});
+document.getElementById("fechaDesde").addEventListener("change", () => { if (rangoActivo === "personalizado") aplicarFiltro(); });
+document.getElementById("fechaHasta").addEventListener("change", () => { if (rangoActivo === "personalizado") aplicarFiltro(); });
+
+async function cargar() {
+  try {
+    const res = await apiGet("getEntregas", {});
+    todasEntregas = (res.entregas || []).filter(en => String(en.Estado).indexOf("Recibido") === 0);
+    aplicarFiltro();
+  } catch (err) {
+    document.getElementById("listaHistorial").innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+
+let filtradas = [];
+function aplicarFiltro() {
+  const rango = calcularRango(rangoActivo);
+  const cont = document.getElementById("listaHistorial");
+  if (!rango) { cont.innerHTML = '<p class="loading">Selecciona ambas fechas.</p>'; filtradas = []; actualizarResumen(); return; }
+  const [desde, hasta] = rango;
+
+  filtradas = todasEntregas.filter(en => {
+    if (!en.Fecha_Recibido) return false;
+    const f = new Date(String(en.Fecha_Recibido).replace(" ", "T"));
+    if (isNaN(f.getTime())) return false;
+    return f >= desde && f <= hasta;
+  }).sort((a, b) => String(b.Fecha_Recibido).localeCompare(String(a.Fecha_Recibido)));
+
+  cont.innerHTML = "";
+  if (!filtradas.length) {
+    cont.innerHTML = '<p class="loading">No hay entregas completadas en ese rango.</p>';
+  } else {
+    filtradas.forEach(en => {
+      const badgeClass = "badge-" + claseEstado(en.Estado);
+      const item = document.createElement("div");
+      item.className = "req-item hist-item";
+      item.innerHTML = `
+        <div class="fila">
+          <span class="reqid">${en.OPN}</span>
+          <span class="badge ${badgeClass}">${en.Estado}</span>
+        </div>
+        <p class="op">${en.Cliente ? en.Cliente + " · " : ""}${en.Item}</p>
+        <p class="op">Anunciado ${en.Cantidad_Anunciada} · Recibido ${en.Cantidad_Fisica_Recibida} und</p>
+        <p class="op">Creó ${en.Creado_Por || "—"} (${en.Fecha_Creacion || "—"}) · Recibió ${en.Recibido_Por || "—"} (${en.Fecha_Recibido || "—"})</p>
+        ${String(en.Reporte_Calidad).toUpperCase() === "SI" ? `<p class="op" style="color:var(--rojo);">⚠ Reporte de calidad: ${en.Observacion_Calidad || "sin detalle"}</p>` : ""}`;
+      cont.appendChild(item);
+    });
+  }
+  actualizarResumen();
+}
+
+function actualizarResumen() {
+  document.getElementById("totalRango").textContent = filtradas.length;
+}
+
+function etiquetaRango() {
+  const map = { hoy: "Hoy", ayer: "Ayer", semana: "Últimos 7 días", mes: "Últimos 30 días" };
+  if (rangoActivo === "personalizado") {
+    const desde = document.getElementById("fechaDesde").value;
+    const hasta = document.getElementById("fechaHasta").value;
+    return `Del ${desde} al ${hasta}`;
+  }
+  return map[rangoActivo] || "";
+}
+
+document.getElementById("btnExcel").addEventListener("click", () => {
+  if (!filtradas.length) return;
+  const filas = filtradas.map(en => ({
+    OPN: en.OPN,
+    Cliente: en.Cliente || "",
+    Item: en.Item,
+    "Cant. anunciada": en.Cantidad_Anunciada,
+    "Cant. recibida": en.Cantidad_Fisica_Recibida,
+    Estado: en.Estado,
+    "Fecha producción": en.Fecha_Produccion,
+    "Creado por": en.Creado_Por || "",
+    "Fecha creación": en.Fecha_Creacion || "",
+    "Recibido por": en.Recibido_Por || "",
+    "Fecha recibido": en.Fecha_Recibido || "",
+    "Reporte calidad": en.Reporte_Calidad || "NO",
+    "Observación calidad": en.Observacion_Calidad || ""
+  }));
+  const ws = XLSX.utils.json_to_sheet(filas);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Historial");
+  XLSX.writeFile(wb, `Historial_Recibo_PT_${rangoActivo}.xlsx`);
+});
+
+document.getElementById("btnPdf").addEventListener("click", () => {
+  if (!filtradas.length) return;
+  document.getElementById("rangoTexto").textContent = etiquetaRango();
+  const cuerpo = document.getElementById("tablaCuerpo");
+  cuerpo.innerHTML = "";
+  filtradas.forEach(en => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${en.OPN}</td><td>${en.Cliente || ""}</td><td>${en.Item}</td>
+      <td>${en.Cantidad_Anunciada}</td><td>${en.Cantidad_Fisica_Recibida}</td>
+      <td>${en.Estado}</td><td>${en.Fecha_Produccion}</td>
+      <td>${en.Creado_Por || ""}</td><td>${en.Recibido_Por || ""}</td><td>${en.Fecha_Recibido || ""}</td>
+      <td>${String(en.Reporte_Calidad).toUpperCase() === "SI" ? "Sí — " + (en.Observacion_Calidad || "") : "No"}</td>`;
+    cuerpo.appendChild(tr);
+  });
+  window.print();
+});
+
+if (usuario) cargar();
+</script>
+</body>
+</html>

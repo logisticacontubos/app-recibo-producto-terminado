@@ -28,6 +28,7 @@ if (usuario) {
   }
   if (puedeRecibir(rol) || esAdmin(rol)) {
     cont.appendChild(accion("📥", "Recibir entrega", "Buscar y confirmar entregas pendientes", "bodega.html"));
+    cont.appendChild(accion("🕘", "Historial", "Entregas completadas, filtros y reportes", "historial.html"));
   }
   if (esAdmin(rol)) {
     cont.appendChild(accion("📊", "Inventario activo", "Ver saldo disponible por ítem", "inventario.html"));

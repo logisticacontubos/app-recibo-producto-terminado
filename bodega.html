@@ -13,6 +13,18 @@
   .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 4px 0 14px; }
   .checkbox-row input { width: auto; margin: 0; }
   .estado-preview { font-size: 13px; margin: -8px 0 14px; font-weight: 600; }
+  .opn-card { margin-bottom: 12px; }
+  .opn-card .encabezado { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .opn-card .encabezado .opnid { font-size: 16px; font-weight: 700; }
+  .opn-card .meta { font-size: 12px; color: var(--gris); margin: 0 0 12px; }
+  .entrega-linea {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-top: 1px solid var(--borde); cursor: pointer;
+  }
+  .entrega-linea:hover .item-txt { color: var(--magenta); }
+  .entrega-linea .item-txt { font-size: 13px; font-weight: 500; }
+  .entrega-linea .sub { font-size: 12px; color: var(--gris); margin-top: 2px; }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--gris); margin: 22px 0 10px; text-transform: uppercase; letter-spacing: .04em; }
 </style>
 </head>
 <body>
@@ -26,8 +38,9 @@
   </header>
   <main>
     <div id="vista-lista">
-      <input type="text" id="busqueda-input" placeholder="Buscar por OPN o ítem...">
-      <div id="lista-entregas"></div>
+      <input type="text" id="busqueda-input" placeholder="Buscar por OPN, ítem o cliente...">
+      <div id="lista-opn"></div>
+      <div id="lista-novedades"></div>
     </div>
 
     <div id="vista-recibir" style="display:none;"></div>
@@ -36,33 +49,88 @@
 <script src="js/app.js"></script>
 <script>
 const usuario = requiereApp();
+let todasEntregas = [];
 let entregaSel = null;
 
 async function cargarPendientes(busqueda) {
-  const cont = document.getElementById("lista-entregas");
+  const contOpn = document.getElementById("lista-opn");
+  const contNov = document.getElementById("lista-novedades");
   try {
-    const res = await apiGet("getEntregasPendientes", { busqueda: busqueda || "" });
-    cont.innerHTML = "";
-    if (!res.entregas.length) {
-      cont.innerHTML = '<p class="loading">No hay entregas pendientes que coincidan.</p>';
-      return;
-    }
-    res.entregas.forEach(en => {
-      const item = document.createElement("div");
-      item.className = "req-item";
-      item.style.cursor = "pointer";
-      item.innerHTML = `
-        <div class="fila">
-          <span class="reqid">${en.OPN} · ${en.Cantidad_Anunciada} und</span>
-          <span class="badge badge-Pendiente">Pendiente</span>
-        </div>
-        <p class="op">${en.Cliente ? en.Cliente + " · " : ""}${en.Item}</p>
-        <p class="op">Producción: ${en.Fecha_Produccion}</p>`;
-      item.onclick = () => mostrarRecibir(en);
-      cont.appendChild(item);
+    const res = await apiGet("getEntregas", {});
+    todasEntregas = res.entregas || [];
+
+    const texto = (busqueda || "").toUpperCase().trim();
+    const coincide = (en) => !texto ||
+      String(en.OPN).toUpperCase().includes(texto) ||
+      String(en.Item).toUpperCase().includes(texto) ||
+      String(en.Cliente).toUpperCase().includes(texto);
+
+    // Órdenes activas: agrupa por OPN todas las entregas "No entregado".
+    const pendientes = todasEntregas.filter(en => en.Estado === "No entregado" && coincide(en));
+    const porOpn = {};
+    pendientes.forEach(en => {
+      if (!porOpn[en.OPN]) porOpn[en.OPN] = { entregas: [], info: en };
+      porOpn[en.OPN].entregas.push(en);
     });
+
+    contOpn.innerHTML = "";
+    const opns = Object.keys(porOpn);
+    if (!opns.length) {
+      contOpn.innerHTML = '<p class="loading">No hay órdenes con entregas pendientes.</p>';
+    } else {
+      opns.forEach(opn => {
+        const grupo = porOpn[opn];
+        const info = grupo.info;
+        const card = document.createElement("div");
+        card.className = "card opn-card";
+        card.innerHTML = `
+          <div class="encabezado">
+            <span class="opnid">${opn}</span>
+            <span class="badge badge-Pendiente">${grupo.entregas.length} pendiente${grupo.entregas.length > 1 ? "s" : ""}</span>
+          </div>
+          <p class="meta">${info.Cliente || "Cliente sin definir"} · Creado por ${info.OPN_Creado_Por || "—"} · ${info.OPN_Fecha_Creacion || "—"}</p>`;
+        grupo.entregas.forEach(en => {
+          const linea = document.createElement("div");
+          linea.className = "entrega-linea";
+          linea.innerHTML = `
+            <div>
+              <div class="item-txt">${en.Item}</div>
+              <div class="sub">${en.Cantidad_Anunciada} und · Producción: ${en.Fecha_Produccion}</div>
+            </div>
+            <span style="color:var(--gris);font-size:18px;">›</span>`;
+          linea.onclick = () => mostrarRecibir(en);
+          card.appendChild(linea);
+        });
+        contOpn.appendChild(card);
+      });
+    }
+
+    // Recibidas con novedad recientes (menor/mayor cantidad), para que bodega
+    // tenga visibilidad de discrepancias recientes sin ir a Indicadores.
+    const novedades = todasEntregas
+      .filter(en => (en.Estado === "Recibido con menor cantidad" || en.Estado === "Recibido con mayor cantidad") && coincide(en))
+      .sort((a, b) => String(b.Fecha_Recibido).localeCompare(String(a.Fecha_Recibido)))
+      .slice(0, 10);
+
+    contNov.innerHTML = "";
+    if (novedades.length) {
+      contNov.innerHTML = '<p class="section-title">Recibidas con novedad recientes</p>';
+      novedades.forEach(en => {
+        const badgeClass = "badge-" + claseEstado(en.Estado);
+        const item = document.createElement("div");
+        item.className = "req-item";
+        item.innerHTML = `
+          <div class="fila">
+            <span class="reqid">${en.OPN}</span>
+            <span class="badge ${badgeClass}">${en.Estado}</span>
+          </div>
+          <p class="op">${en.Cliente ? en.Cliente + " · " : ""}${en.Item}</p>
+          <p class="op">Anunciado ${en.Cantidad_Anunciada} · Recibido ${en.Cantidad_Fisica_Recibida} · ${en.Fecha_Recibido || "—"}</p>`;
+        contNov.appendChild(item);
+      });
+    }
   } catch (err) {
-    cont.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+    contOpn.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
   }
 }
 
@@ -85,6 +153,8 @@ function mostrarRecibir(en) {
       <div class="info-box">
         <div class="r"><span class="label">Cantidad anunciada</span><span>${en.Cantidad_Anunciada} und</span></div>
         <div class="r"><span class="label">Fecha de producción</span><span>${en.Fecha_Produccion}</span></div>
+        <div class="r"><span class="label">Creado por</span><span>${en.Creado_Por || "—"}</span></div>
+        <div class="r"><span class="label">Fecha de creación</span><span>${en.Fecha_Creacion || "—"}</span></div>
       </div>
 
       <label>Cantidad física recibida</label>

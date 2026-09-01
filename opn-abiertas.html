@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPN abiertas — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .opn-open-card { margin-bottom: 12px; cursor: pointer; }
+  .opn-open-card:hover { border: 1px solid var(--magenta); }
+  .opn-open-card .encabezado { display: flex; justify-content: space-between; align-items: baseline; }
+  .opn-open-card .encabezado .opnid { font-size: 16px; font-weight: 700; }
+  .opn-open-card .meta { font-size: 12px; color: var(--gris); margin: 2px 0 10px; }
+  .barra { height: 8px; border-radius: 4px; background: var(--fondo); overflow: hidden; margin-bottom: 6px; }
+  .barra .fill { height: 100%; background: var(--magenta); }
+  .opn-open-card .nota { font-size: 12px; color: var(--gris); margin: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <div>
+      <h1>OPN abiertas</h1>
+      <p class="sub">Órdenes con despachos parciales pendientes</p>
+    </div>
+  </header>
+  <main>
+    <div id="lista"></div>
+  </main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+
+async function cargar() {
+  const cont = document.getElementById("lista");
+  try {
+    const res = await apiGet("getOpnAbiertas", {});
+    const lista = res.opnAbiertas || [];
+    cont.innerHTML = "";
+    if (!lista.length) {
+      cont.innerHTML = '<p class="loading">No hay OPN abiertas con saldo pendiente.</p>';
+      return;
+    }
+    lista.forEach(o => {
+      const total = Number(o.Cantidad_Orden || 0);
+      const recibido = Number(o.Cantidad_Recibida || 0);
+      const pct = total > 0 ? Math.min(100, Math.round((recibido / total) * 100)) : 0;
+      const card = document.createElement("div");
+      card.className = "card opn-open-card";
+      card.innerHTML = `
+        <div class="encabezado">
+          <span class="opnid">${o.OPN}</span>
+          <span class="badge badge-Pendiente">${recibido} / ${total}</span>
+        </div>
+        <p class="meta">${o.Cliente || "Cliente sin definir"} · ${o.Item}</p>
+        <div class="barra"><div class="fill" style="width:${pct}%;"></div></div>
+        <p class="nota">Faltan ${o.Saldo_Pendiente} und${o.Cantidad_En_Camino ? " · " + o.Cantidad_En_Camino + " und en camino (aún no recibidas)" : ""}${o.Fecha_Terminacion ? " · vence " + o.Fecha_Terminacion : ""}</p>`;
+      card.onclick = () => { window.location.href = `trazabilidad-opn.html?opn=${encodeURIComponent(o.OPN)}`; };
+      cont.appendChild(card);
+    });
+  } catch (err) {
+    cont.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+if (usuario) cargar();
+</script>
+</body>
+</html>

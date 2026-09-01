@@ -54,6 +54,7 @@ if (usuario) {
   }
   cont.appendChild(accion("🕘", "Historial", "Entregas completadas, filtros y reportes", "historial.html"));
   cont.appendChild(accion("🏷️", "OPN sin entrada a SIESA", "Recibidas en bodega, pendientes de registrar", "siesa.html"));
+  cont.appendChild(accion("📋", "OPN abiertas", "Órdenes con despachos parciales pendientes", "opn-abiertas.html"));
   if (esAdmin(rol)) {
     cont.appendChild(accion("📊", "Inventario activo", "Ver saldo disponible por ítem", "inventario.html"));
     cont.appendChild(accion("✏️", "Ajuste manual", "Registrar entradas, salidas o correcciones", "ajuste.html"));

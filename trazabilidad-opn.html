@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trazabilidad OPN — Recibo Producto Terminado</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .traza-row { padding: 10px 0; border-top: 1px solid var(--borde); }
+  .traza-row .fila { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .traza-row .titulo { font-size: 13px; font-weight: 700; }
+  .traza-row .linea { font-size: 12px; color: var(--gris); margin: 2px 0 0; }
+  .traza-row.pendiente { opacity: 0.6; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a href="opn-abiertas.html" class="back">‹</a>
+    <div>
+      <h1>Trazabilidad</h1>
+      <p class="sub">Historial completo de la OPN</p>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+<script src="js/app.js"></script>
+<script>
+const usuario = requiereApp();
+const params = new URLSearchParams(window.location.search);
+const opnId = params.get("opn");
+
+async function cargar() {
+  const main = document.getElementById("main");
+  if (!opnId) { main.innerHTML = '<p class="error-msg" style="display:block;">Falta el número de OPN.</p>'; return; }
+
+  try {
+    const res = await apiGet("getTrazabilidadOPN", { opn: opnId });
+    const opn = res.opn;
+    const entregas = res.entregas || [];
+    const cantidadOrden = Number(opn.Cantidad_Orden || 0);
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="fila" style="display:flex;justify-content:space-between;align-items:baseline;">
+        <label style="margin:0;font-size:17px;font-weight:700;color:var(--texto);">${opn.OPN}</label>
+        ${cantidadOrden ? `<span style="font-size:13px;font-weight:700;color:var(--magenta);">${res.cantidadRecibida} / ${cantidadOrden} und</span>` : ""}
+      </div>
+      <p class="op" style="margin:2px 0 14px;">${opn.Cliente || ""} · ${opn.Item || ""}</p>
+      ${String(opn.Es_Abierta).toUpperCase() === "SI" ? `<p class="op">Orden abierta: ${opn.Fecha_Inicio || "—"} a ${opn.Fecha_Terminacion || "—"}</p>` : ""}
+      <p class="op">Creada por ${opn.Creado_Por || "—"} · ${opn.Fecha_Creacion || "—"}</p>`;
+    main.appendChild(card);
+
+    const listaCard = document.createElement("div");
+    listaCard.className = "card";
+    listaCard.innerHTML = '<label style="margin-bottom:4px;">Entregas de esta OPN</label>';
+
+    if (!entregas.length) {
+      listaCard.innerHTML += '<p class="op">Aún no hay entregas registradas.</p>';
+    } else {
+      entregas.forEach((en, i) => {
+        const badgeClass = "badge-" + claseEstado(en.Estado);
+        const row = document.createElement("div");
+        row.className = "traza-row" + (en.Estado === "No entregado" ? " pendiente" : "");
+        row.innerHTML = `
+          <div class="fila">
+            <span class="titulo">Entrega ${i + 1} · ${en.Cantidad_Anunciada} und${en.Cantidad_Fisica_Recibida ? " (recibido " + en.Cantidad_Fisica_Recibida + ")" : ""}</span>
+            <span class="badge ${badgeClass}">${en.Estado}</span>
+          </div>
+          <p class="linea">Creó ${en.Creado_Por || "—"} · ${en.Fecha_Creacion || "—"}</p>
+          ${en.Operario_Produccion_Entrega ? `<p class="linea">Entregó a bodega: ${en.Operario_Produccion_Entrega}</p>` : ""}
+          ${en.Recibido_Por ? `<p class="linea">Recibió ${en.Recibido_Por} · ${en.Fecha_Recibido || "—"}</p>` : ""}
+          ${String(en.Reporte_Calidad).toUpperCase() === "SI" ? `<p class="linea" style="color:var(--rojo);">⚠ Calidad: ${en.Observacion_Calidad || "sin detalle"}</p>` : ""}`;
+        listaCard.appendChild(row);
+      });
+
+      if (cantidadOrden && res.cantidadRecibida < cantidadOrden) {
+        const pendRow = document.createElement("div");
+        pendRow.className = "traza-row pendiente";
+        pendRow.innerHTML = `
+          <div class="fila">
+            <span class="titulo">Saldo pendiente · ${cantidadOrden - res.cantidadRecibida} und</span>
+            <span class="badge badge-Pendiente">Pendiente</span>
+          </div>
+          <p class="linea">Aún sin entregar a bodega</p>`;
+        listaCard.appendChild(pendRow);
+      }
+    }
+    main.appendChild(listaCard);
+  } catch (err) {
+    main.innerHTML = `<p class="error-msg" style="display:block;">${err.message}</p>`;
+  }
+}
+if (usuario) cargar();
+</script>
+</body>
+</html>

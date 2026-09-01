@@ -44,6 +44,26 @@
         <div class="combo-list" id="item-list"></div>
       </div>
 
+      <div class="checkbox-row">
+        <input type="checkbox" id="chk-abierta">
+        <label style="margin:0;color:var(--texto);">Orden abierta (varios despachos hasta completar)</label>
+      </div>
+
+      <div id="campos-abierta" style="display:none; background:var(--fondo); border-radius:8px; padding:12px; margin-bottom:14px;">
+        <div class="row">
+          <div>
+            <label>Fecha inicio</label>
+            <input type="date" id="fecha-inicio-input">
+          </div>
+          <div>
+            <label>Fecha terminación</label>
+            <input type="date" id="fecha-termina-input">
+          </div>
+        </div>
+        <label>Cantidad total de la orden</label>
+        <input type="number" id="cantidad-orden-input">
+      </div>
+
       <label>Cantidad a entregar</label>
       <input type="number" id="cantidad-input">
 
@@ -129,6 +149,10 @@ chipAyer.addEventListener("click", () => {
   marcarChip("ayer");
 });
 fechaInput.addEventListener("input", () => marcarChip(null));
+
+document.getElementById("chk-abierta").addEventListener("change", (e) => {
+  document.getElementById("campos-abierta").style.display = e.target.checked ? "block" : "none";
+});
 
 function renderCliList(filtro) {
   const matches = (maestros.clientes || []).filter(c => c.toLowerCase().includes(filtro.toLowerCase()));
@@ -227,9 +251,16 @@ document.getElementById("btn-crear").addEventListener("click", async () => {
   mostrarCargando("Creando entrega...");
   try {
     const itemCompleto = `${itemCodigoSel} — ${itemDescripcionSel}`;
+    const esAbierta = document.getElementById("chk-abierta").checked;
+    const fechaInicio = document.getElementById("fecha-inicio-input").value;
+    const fechaTermina = document.getElementById("fecha-termina-input").value;
+    const cantidadOrden = document.getElementById("cantidad-orden-input").value;
     // Los dos pasos comparten un solo overlay (silencioso:true en cada uno)
     // para que no parpadee entre "Verificando OPN..." y "Creando entrega...".
-    await apiPost("getOrCreateOPN", { opn, cliente: clienteSel, item: itemCompleto, creadoPor: usuario.nombre }, { silencioso: true });
+    await apiPost("getOrCreateOPN", {
+      opn, cliente: clienteSel, item: itemCompleto, creadoPor: usuario.nombre,
+      esAbierta, fechaInicio, fechaTerminacion: fechaTermina, cantidadOrden
+    }, { silencioso: true });
     await apiPost("crearEntrega", {
       opn, item: itemCompleto, cantidadAnunciada: Number(cantidad), fechaProduccion: fecha, creadoPor: usuario.nombre
     }, { silencioso: true });

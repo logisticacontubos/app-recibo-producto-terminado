@@ -31,6 +31,7 @@
     <div class="card">
       <label>OPN</label>
       <input type="text" id="opn-input" placeholder="OPN-00000" value="OPN-">
+      <div class="info-msg" id="opn-info" style="display:none;"></div>
 
       <label>Cliente</label>
       <div class="combo-wrap">
@@ -121,6 +122,63 @@ opnInput.addEventListener("focus", () => {
   if (opnInput.selectionStart < 4) {
     opnInput.setSelectionRange(opnInput.value.length, opnInput.value.length);
   }
+});
+
+const opnInfo = document.getElementById("opn-info");
+let opnBloqueada = false;
+let timeoutOpn;
+
+function limpiarBloqueoOPN() {
+  if (!opnBloqueada) return;
+  opnBloqueada = false;
+  cliInput.disabled = false;
+  itemInput.disabled = false;
+  opnInfo.style.display = "none";
+  opnInfo.textContent = "";
+  document.getElementById("chk-abierta").disabled = false;
+}
+
+async function consultarOPN() {
+  const opn = opnInput.value.trim();
+  if (opn.length <= 4) { limpiarBloqueoOPN(); return; } // solo "OPN-" sin número aún
+  try {
+    const res = await apiGet("getOPN", { opn }, { silencioso: true });
+    if (!res.existe) { limpiarBloqueoOPN(); return; }
+
+    // La OPN ya existe: se trae cliente e ítem automáticamente y se bloquean
+    // para evitar el error de mezclar ítems distintos bajo la misma OPN.
+    opnBloqueada = true;
+    clienteSel = res.opn.Cliente || "";
+    cliInput.value = clienteSel;
+    cliInput.disabled = true;
+
+    const partes = String(res.opn.Item || "").split(" — ");
+    itemCodigoSel = partes[0] || "";
+    itemDescripcionSel = partes.slice(1).join(" — ") || "";
+    itemLabelSel = res.opn.Item;
+    itemInput.value = res.opn.Item;
+    itemInput.disabled = true;
+
+    if (String(res.opn.Es_Abierta).toUpperCase() === "SI") {
+      const cantidadOrden = Number(res.opn.Cantidad_Orden || 0);
+      const saldo = Math.max(cantidadOrden - res.cantidadRecibida, 0);
+      opnInfo.textContent = `Orden abierta · Recibido ${res.cantidadRecibida} de ${cantidadOrden} und · Saldo pendiente: ${saldo} und`;
+    } else {
+      opnInfo.textContent = "Esta OPN ya existe — se agregará una entrega adicional a la misma.";
+    }
+    opnInfo.style.display = "block";
+
+    document.getElementById("chk-abierta").checked = false;
+    document.getElementById("chk-abierta").disabled = true;
+    document.getElementById("campos-abierta").style.display = "none";
+  } catch (err) {
+    // Si falla la consulta, no bloqueamos el formulario; solo no autocompleta.
+  }
+}
+
+opnInput.addEventListener("input", () => {
+  clearTimeout(timeoutOpn);
+  timeoutOpn = setTimeout(consultarOPN, 400);
 });
 
 function formatoFecha(d) {

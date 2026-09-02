@@ -124,13 +124,16 @@ async function apiPost(accion, datos, opts) {
 }
 
 async function apiGet(accion, params, opts) {
-  const base = Object.assign({ accion: accion }, params || {});
+  // Se agrega "_" con la hora exacta para evitar que el navegador (u otro
+  // proxy intermedio) cachee la respuesta de Apps Script — sin esto, a veces
+  // llega una respuesta vieja o corrupta sin los parámetros de la petición.
+  const base = Object.assign({ accion: accion, _: Date.now() }, params || {});
   const qs = new URLSearchParams(base);
   const silencioso = opts && opts.silencioso;
   if (!silencioso) mostrarCargando(MENSAJES_CARGA[accion] || "Cargando...");
   try {
     // Los GET (solo leer) sí se reintentan hasta 2 veces — son seguros de repetir.
-    return await fetchConReintento(() => fetch(API_URL + "?" + qs.toString()), 2);
+    return await fetchConReintento(() => fetch(API_URL + "?" + qs.toString(), { cache: "no-store" }), 2);
   } finally {
     if (!silencioso) ocultarCargando();
   }
